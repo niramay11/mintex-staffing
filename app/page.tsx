@@ -1,7 +1,7 @@
 import About from "./landing/About";
 import Hero from "./components/Hero";
 import NetworkSection from "./landing/NetworkSection";
-import Statistics from "./landing/Statistics";
+import StatisticsWrapper from "./landing/StatisticsWrapper";
 import InsightsSection from "./landing/InsightsSection";
 import ScrollReveal from "./components/ScrollReveal";
 import IsometricServiceGrid from "./landing/ServicesGrid";
@@ -29,7 +29,7 @@ export default function Home() {
           <IsometricServiceGrid />
         </ScrollReveal>
         <ScrollReveal delay={0.2}>
-          <Statistics />
+          <StatisticsWrapper />
         </ScrollReveal>
       </div>
       <ScrollReveal>

@@ -12,6 +12,7 @@
     "@googlemaps/react-wrapper": "^1.2.0",
     "@netlify/plugin-nextjs": "^5.15.9",
     "@react-google-maps/api": "^2.20.8",
+    "@supabase/supabase-js": "^2.106.0",
     "framer-motion": "^12.23.26",
     "gsap": "^3.14.2",
     "leaflet": "^1.9.4",

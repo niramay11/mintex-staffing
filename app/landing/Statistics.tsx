@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { BsPersonPlusFill } from "react-icons/bs";
 import { HiMiniChartBarSquare } from "react-icons/hi2";
 import { PiClipboardTextDuotone } from "react-icons/pi";
@@ -17,68 +17,55 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import type { StatisticsData } from "../api/statistics/route";
 
-const marketData = [
-  { month: "Jan", value: 80 },
-  { month: "Feb", value: 120 },
-  { month: "Mar", value: 150 },
-  { month: "Apr", value: 300 },
-  { month: "May", value: 260 },
-  { month: "Jun", value: 380 },
-  { month: "Jul", value: 330 },
-  { month: "Aug", value: 420 },
-  { month: "Sep", value: 310 },
-  { month: "Oct", value: 200 },
-  { month: "Nov", value: 250 },
-  { month: "Dec", value: 320 },
-];
-
-const donutData = [
-  { name: "Client", value: 25 },
-  { name: "Candidate", value: 20 },
+const STAT_ICONS = [
+  <HiMiniChartBarSquare key="0" className="text-2xl text-cyan-400" />,
+  <PiClipboardTextDuotone key="1" className="text-2xl text-cyan-400" />,
+  <TbShoppingBagCheck key="2" className="text-2xl text-cyan-400" />,
+  <BsPersonPlusFill key="3" className="text-2xl text-cyan-400" />,
 ];
 
 const COLORS = ["#22d3ee", "#a78bfa"];
 
-const industries = [
-  { name: "Information Technologies", percent: 33, color: "#22d3ee" },
-  { name: "Healthcare", percent: 25, color: "#38bdf8" },
-  { name: "Hospitality & Finance", percent: 17, color: "#818cf8" },
-  { name: "Engineering & Construction", percent: 14, color: "#a78bfa" },
-  { name: "Other", percent: 11, color: "#6366f1" },
-];
+const DEFAULT_DATA: StatisticsData = {
+  stats: [
+    { id: "s1", value: 150, label: "Recruiters", suffix: "+" },
+    { id: "s2", value: 30, label: "Team Leads", suffix: "+" },
+    { id: "s3", value: 10, label: "Account Managers", suffix: "" },
+    { id: "s4", value: 10, label: "Delivery Managers", suffix: "" },
+  ],
+  yearsOfExperience: 25,
+  turnaroundHours: 48,
+  industries: [
+    { id: "i1", name: "Information Technologies", percent: 33, color: "#22d3ee" },
+    { id: "i2", name: "Healthcare", percent: 25, color: "#38bdf8" },
+    { id: "i3", name: "Hospitality & Finance", percent: 17, color: "#818cf8" },
+    { id: "i4", name: "Engineering & Construction", percent: 14, color: "#a78bfa" },
+    { id: "i5", name: "Other", percent: 11, color: "#6366f1" },
+  ],
+  marketData: [
+    { month: "Jan", value: 80 }, { month: "Feb", value: 120 },
+    { month: "Mar", value: 150 }, { month: "Apr", value: 300 },
+    { month: "May", value: 260 }, { month: "Jun", value: 380 },
+    { month: "Jul", value: 330 }, { month: "Aug", value: 420 },
+    { month: "Sep", value: 310 }, { month: "Oct", value: 200 },
+    { month: "Nov", value: 250 }, { month: "Dec", value: 320 },
+  ],
+  retentionClientYears: 2.5,
+  retentionCandidateYears: 2,
+};
 
-const stats = [
-  {
-    icon: <HiMiniChartBarSquare className="text-2xl text-cyan-400" />,
-    value: 150,
-    label: "Recruiters",
-    suffix: "+",
-  },
-  {
-    icon: <PiClipboardTextDuotone className="text-2xl text-cyan-400" />,
-    value: 30,
-    label: "Team Leads",
-    suffix: "+",
-  },
-  {
-    icon: <TbShoppingBagCheck className="text-2xl text-cyan-400" />,
-    value: 10,
-    label: "Account Managers",
-    suffix: "",
-  },
-  {
-    icon: <BsPersonPlusFill className="text-2xl text-cyan-400" />,
-    value: 10,
-    label: "Delivery Managers",
-    suffix: "",
-  },
-];
+export default function Statistics({ data }: { data?: StatisticsData | null }) {
+  const d = data ?? DEFAULT_DATA;
 
-export default function Statistics() {
+  const donutData = [
+    { name: "Client", value: d.retentionClientYears * 10 },
+    { name: "Candidate", value: d.retentionCandidateYears * 10 },
+  ];
+
   return (
     <div className="relative w-full py-20 sm:py-28 px-4 sm:px-6 lg:px-8 xl:px-20 2xl:px-32 bg-black overflow-hidden">
-      {/* Subtle background accents */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
@@ -112,15 +99,15 @@ export default function Statistics() {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="grid grid-cols-2 lg:grid-cols-4 border border-[#57EEFF]/50 rounded-2xl overflow-hidden mb-6 shadow-[0_0_20px_rgba(87,238,255,0.3)]"
         >
-          {stats.map((s, i) => (
+          {d.stats.map((s, i) => (
             <div
-              key={i}
+              key={s.id}
               className={`relative p-6 sm:p-8 flex flex-col items-center text-center transition-all duration-400 hover:bg-cyan-500/[0.06] hover:scale-105 hover:shadow-[0_0_30px_rgba(87,238,255,0.15)] group cursor-default ${
-                i < stats.length - 1 ? "border-r border-[#57EEFF]/30" : ""
+                i < d.stats.length - 1 ? "border-r border-[#57EEFF]/30" : ""
               } ${i < 2 ? "border-b lg:border-b-0 border-[#57EEFF]/30" : ""}`}
             >
               <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:bg-cyan-500/20 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(87,238,255,0.3)]">
-                {s.icon}
+                {STAT_ICONS[i % STAT_ICONS.length]}
               </div>
               <AnimatedValue
                 targetValue={s.value}
@@ -143,10 +130,10 @@ export default function Statistics() {
           >
             <p className="text-sm text-white/40 font-medium uppercase tracking-wider mb-4 group-hover:text-cyan-400/60 transition-colors duration-300">Years of Experience</p>
             <AnimatedValue
-              targetValue={25}
+              targetValue={d.yearsOfExperience}
               className="text-6xl sm:text-7xl font-bold text-white mb-2"
             />
-            <p className="text-white/30 text-sm">Trusted staffing since 2001</p>
+            <p className="text-white/30 text-sm">Trusted staffing since {new Date().getFullYear() - d.yearsOfExperience}</p>
           </motion.div>
 
           <motion.div
@@ -159,7 +146,7 @@ export default function Statistics() {
             <p className="text-sm text-white/40 font-medium uppercase tracking-wider mb-4 group-hover:text-cyan-400/60 transition-colors duration-300">Turnaround Time</p>
             <div className="flex items-baseline gap-2">
               <AnimatedValue
-                targetValue={48}
+                targetValue={d.turnaroundHours}
                 className="text-6xl sm:text-7xl font-bold text-white"
               />
               <span className="text-lg text-white/30 font-medium">Hrs</span>
@@ -180,8 +167,8 @@ export default function Statistics() {
           >
             <h3 className="text-lg font-semibold text-white mb-6">Industry Focus</h3>
             <div className="space-y-5">
-              {industries.map((ind, i) => (
-                <IndustryRow key={i} name={ind.name} percent={ind.percent} color={ind.color} />
+              {d.industries.map((ind, i) => (
+                <IndustryRow key={ind.id ?? i} name={ind.name} percent={ind.percent} color={ind.color} />
               ))}
             </div>
           </motion.div>
@@ -218,12 +205,7 @@ export default function Statistics() {
                   </Pie>
                   <Tooltip
                     cursor={{ fill: "rgba(255,255,255,0.03)" }}
-                    contentStyle={{
-                      backgroundColor: "#0a0a0a",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                    }}
+                    contentStyle={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
                     itemStyle={{ color: "#ffffff" }}
                     formatter={(value: number, name: string) => [`${value / 10} years`, name]}
                   />
@@ -234,11 +216,11 @@ export default function Statistics() {
             <div className="flex justify-center gap-6 text-xs text-white/50 mt-2">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-cyan-400 rounded-full" />
-                2.5 Yrs · Client
+                {d.retentionClientYears} Yrs · Client
               </span>
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-violet-400 rounded-full" />
-                2 Yrs · Candidate
+                {d.retentionCandidateYears} Yrs · Candidate
               </span>
             </div>
           </motion.div>
@@ -263,24 +245,12 @@ export default function Statistics() {
 
             <div className="flex-1 min-h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={marketData}>
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#22d3ee"
-                    strokeWidth={2}
-                    dot={false}
-                    animationDuration={1500}
-                  />
+                <LineChart data={d.marketData}>
+                  <Line type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} dot={false} animationDuration={1500} />
                   <XAxis dataKey="month" stroke="rgba(255,255,255,0.15)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="rgba(255,255,255,0.15)" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0a0a0a",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                    }}
+                    contentStyle={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
                     itemStyle={{ color: "#22d3ee" }}
                     labelStyle={{ color: "rgba(255,255,255,0.5)" }}
                   />
@@ -294,7 +264,6 @@ export default function Statistics() {
   );
 }
 
-/* ─── Helper: Animated counter ─── */
 function AnimatedValue({
   targetValue,
   className,
@@ -329,7 +298,6 @@ function AnimatedValue({
   );
 }
 
-/* ─── Helper: Industry progress bar ─── */
 function IndustryRow({ name, percent, color }: { name: string; percent: number; color: string }) {
   return (
     <div>
