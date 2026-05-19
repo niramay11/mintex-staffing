@@ -1,0 +1,78 @@
+{
+  "images": [
+    {
+      "id": "img-1774415877574",
+      "src": "/insights/1774415877573-sp1.png",
+      "alt": "",
+      "url": "http://localhost:3000/candidates/jobs"
+    },
+    {
+      "id": "img-1774416601210",
+      "src": "/insights/1774416601208-sp8.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416605469",
+      "src": "/insights/1774416605468-sp1.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416609016",
+      "src": "/insights/1774416609014-sp9.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416612172",
+      "src": "/insights/1774416612170-sp8.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416615497",
+      "src": "/insights/1774416615496-sp7.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416618764",
+      "src": "/insights/1774416618763-sp1.png",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "img-1774416623626",
+      "src": "/insights/1774416623625-sp1.png",
+      "alt": "",
+      "url": ""
+    }
+  ],
+  "reels": [
+    {
+      "id": "reel-1774416568305",
+      "src": "/insights/1774416568272-Loom-_-Free-Screen-&-Video-Recording-Software-_-Loom---Google-Chrome-2026-03-14-18-12-21.mp4",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "reel-1774416669441",
+      "src": "/insights/1774416669433-Start-Loom-Onboarding-_-Loom---Google-Chrome-2026-03-14-18-12-42.mp4",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "reel-1774416672591",
+      "src": "/insights/1774416672587-Best-Model-for-SaaS---Google-Chrome-2026-03-14-17-41-25.mp4",
+      "alt": "",
+      "url": ""
+    },
+    {
+      "id": "reel-1774416676465",
+      "src": "/insights/1774416676456-Start-Loom-Onboarding-_-Loom---Google-Chrome-2026-03-14-18-12-42.mp4",
+      "alt": "",
+      "url": ""
+    }
+  ]
+}

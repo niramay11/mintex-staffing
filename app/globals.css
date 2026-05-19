@@ -1,0 +1,250 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-bebas: var(--font-bebas);
+  --font-gilroy: var(--font-gilroy);
+  --font-sans: var(--font-gilroy);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+
+.bg-hero {
+  background-image: url("../app/assets/hero-bg.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.pupil {
+  @apply w-2 h-2 bg-black rounded-full transition-transform duration-200;
+}
+
+@keyframes floatY {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseSlow {
+  0% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.03);
+  }
+
+  100% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+}
+
+/* OUTER: only one transform here (base placement + parallax offsets) */
+.hero-card-outer {
+  width: 130px;
+  height: 150px;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  will-change: transform;
+  /* small parallax offsets derived from container vars */
+  --px: calc(var(--mx) * 8px);
+  --py: calc(var(--my) * 6px);
+  --r: calc(var(--mx) * 3deg);
+  transform: var(--base-transform) translate(var(--px, 0), var(--py, 0)) rotate(var(--r, 0));
+  transform-origin: 50% 50%;
+  transition: transform 220ms cubic-bezier(0.18, 0.9, 0.25, 1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  margin: 0;
+  /* keep absolute positioning */
+  animation: none;
+  /* keep outer static for float */
+  background: linear-gradient(180deg,
+      rgba(144, 72, 184, 0.3) 0%,
+      rgba(7, 98, 175, 0.3) 100%);
+
+  /* required for border-image to show */
+  border-width: 1px;
+  border-style: solid;
+
+  /* gradient for the border */
+  border-color: linear-gradient(180deg, #8f8f8f 0%, #131313 100%);
+  border-image-slice: 1;
+
+  /* blur (with Safari prefix) */
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+
+  border-radius: 4px;
+  /* optional - keeps corners rounded */
+  overflow: hidden;
+  /* safe-guard */
+}
+
+/* INNER: handles floating and hover scale - safe because it's nested */
+.hero-card-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  animation: floatY 4200ms ease-in-out infinite;
+  transition: transform 220ms ease-out;
+}
+
+.hero-card-inner:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 14px 34px rgba(10, 12, 20, 0.6),
+    0 4px 8px rgba(10, 12, 20, 0.35);
+}
+
+.animate-pulse-slow {
+  animation-name: pulseSlow;
+  animation-duration: 3600ms;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .hero-card-inner,
+  .animate-pulse-slow {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-card-outer {
+    width: 110px;
+    height: 130px;
+  }
+
+  p {
+    font-size: 11px;
+  }
+}
+
+.about-bg {
+  background: linear-gradient(360deg, #0c5c6d -13.89%, #020e12 100%);
+}
+
+.bg-service {
+  background: linear-gradient(180deg, #000000 0%, #0762AF 100%);
+}
+
+.client-bg {
+  background-image: url("../app/assets/step-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.cta-button {
+  background: linear-gradient(180deg, rgba(31, 31, 46, 0.72) 0%, rgba(0, 0, 0, 0.81) 100%);
+  border: 2px solid;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0px 0px 20px 0px #FFFFFF80 inset;
+
+  box-shadow: 0px 10px 20px 0px #7BD1E899;
+  font-size: 18px;
+  line-height: 28.8px;
+  letter-spacing: 0%;
+  text-align: center;
+  text-transform: uppercase;
+
+}
+
+.contact-bg {
+  background-image: url("../app/assets/contact-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE & Edge (old) */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari */
+}
+
+.support_card {
+  position: relative;
+  border-radius: 24px;
+
+  /* Glass shadow like image */
+  box-shadow: 0px 0px 10px 0px #FFFFFF33 inset;
+
+  box-shadow: 0px 10px 50px 0px #FF57584D;
+
+
+}
+
+/* Gradient Border Layer */
+.support_card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1.2px;
+  border-radius: 24px;
+  background: linear-gradient(220deg,
+      rgba(255, 255, 255, 0.6),
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.4));
+
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
