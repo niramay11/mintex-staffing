@@ -47,6 +47,7 @@ export default function NetworkSection() {
   const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<any>(null);
+  const starCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -54,6 +55,146 @@ export default function NetworkSection() {
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // Star canvas animation
+  useEffect(() => {
+    const canvas = starCanvasRef.current;
+    const container = stickyRef.current;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+    if (!ctx) return;
+
+    const STAR_COUNT   = 250;
+    const STAR_MIN_R   = 0.6;
+    const STAR_MAX_R   = 2.0;
+    const CONNECT_DIST = 140;
+    const MOUSE_DIST   = 190;
+    const STAR_SPEED   = 0.5;
+    const LINE_COLOR: [number, number, number] = [120, 190, 255];
+
+    const resize = () => {
+      W = canvas.width  = container.offsetWidth  || window.innerWidth;
+      H = canvas.height = container.offsetHeight || window.innerHeight;
+    };
+
+    let W = 0, H = 0;
+    resize();
+
+    let mouse = { x: -9999, y: -9999 };
+    let animId: number;
+
+    class Star {
+      x = 0; y = 0; r = 0; vx = 0; vy = 0;
+      twinkleSpeed = 0; twinklePhase = 0; baseAlpha = 0;
+      constructor() { this.reset(true); }
+      reset(randomY = false) {
+        this.x  = Math.random() * W;
+        this.y  = randomY ? Math.random() * H : -10;
+        this.r  = STAR_MIN_R + Math.random() * (STAR_MAX_R - STAR_MIN_R);
+        this.vx = (Math.random() - 0.5) * STAR_SPEED;
+        this.vy = (Math.random() - 0.5) * STAR_SPEED;
+        this.twinkleSpeed = 0.008 + Math.random() * 0.014;
+        this.twinklePhase = Math.random() * Math.PI * 2;
+        this.baseAlpha    = 0.65 + Math.random() * 0.35;
+      }
+      update() {
+        this.x += this.vx; this.y += this.vy;
+        this.twinklePhase += this.twinkleSpeed;
+        if (this.x < -10) this.x = W + 10;
+        if (this.x > W + 10) this.x = -10;
+        if (this.y < -10) this.y = H + 10;
+        if (this.y > H + 10) this.y = -10;
+      }
+      get alpha() { return this.baseAlpha * (0.75 + 0.25 * Math.sin(this.twinklePhase)); }
+      draw() {
+        const a = this.alpha; const r = this.r;
+        // radial glow halo
+        const grd = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * 5);
+        grd.addColorStop(0,   `rgba(180,220,255,${a * 0.9})`);
+        grd.addColorStop(0.35,`rgba(130,190,255,${a * 0.35})`);
+        grd.addColorStop(1,   `rgba(80,140,255,0)`);
+        ctx.beginPath(); ctx.arc(this.x, this.y, r * 5, 0, Math.PI * 2);
+        ctx.fillStyle = grd; ctx.fill();
+        // 4-point star shape
+        const outer = r * 1.6; const inner = r * 0.38; const pts = 4;
+        ctx.save(); ctx.translate(this.x, this.y); ctx.beginPath();
+        for (let i = 0; i < pts * 2; i++) {
+          const angle  = (i * Math.PI) / pts - Math.PI / 2;
+          const radius = i % 2 === 0 ? outer : inner;
+          i === 0
+            ? ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius)
+            : ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        ctx.closePath();
+        ctx.fillStyle = `rgba(220,242,255,${a})`;
+        ctx.shadowBlur  = r * 8;
+        ctx.shadowColor = `rgba(150,210,255,${a * 0.9})`;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    const drawLine = (x1: number, y1: number, x2: number, y2: number, dist: number, maxDist: number, bright = false) => {
+      const t = 1 - dist / maxDist;
+      const alpha = bright ? t * 0.85 : t * 0.45;
+      const [r, g, b] = LINE_COLOR;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.lineWidth   = bright ? t * 1.5 : t * 0.9;
+      ctx.shadowBlur  = bright ? 6 : 0;
+      ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+      ctx.stroke();
+      ctx.shadowBlur  = 0;
+    };
+
+    const stars = Array.from({ length: STAR_COUNT }, () => new Star());
+
+    const animate = () => {
+      ctx.clearRect(0, 0, W, H);
+      stars.forEach(s => s.update());
+      ctx.shadowBlur = 0;
+      const near = stars.filter(s => {
+        const dx = s.x - mouse.x; const dy = s.y - mouse.y;
+        return Math.sqrt(dx * dx + dy * dy) < MOUSE_DIST;
+      });
+      for (let i = 0; i < near.length; i++) {
+        for (let j = i + 1; j < near.length; j++) {
+          const dx = near[i].x - near[j].x; const dy = near[i].y - near[j].y;
+          const d  = Math.sqrt(dx * dx + dy * dy);
+          if (d < CONNECT_DIST) drawLine(near[i].x, near[i].y, near[j].x, near[j].y, d, CONNECT_DIST);
+        }
+        const dx = near[i].x - mouse.x; const dy = near[i].y - mouse.y;
+        drawLine(near[i].x, near[i].y, mouse.x, mouse.y, Math.sqrt(dx*dx+dy*dy), MOUSE_DIST, true);
+      }
+      stars.forEach(s => s.draw());
+      animId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    // Listen on the container (not canvas) so pointer-events work through the globe
+    const getRelPos = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+    const onMouseMove  = (e: MouseEvent) => { const p = getRelPos(e.clientX, e.clientY); mouse.x = p.x; mouse.y = p.y; };
+    const onMouseLeave = () => { mouse.x = -9999; mouse.y = -9999; };
+    const onTouchMove  = (e: TouchEvent) => { const p = getRelPos(e.touches[0].clientX, e.touches[0].clientY); mouse.x = p.x; mouse.y = p.y; };
+    const onResize     = () => resize();
+
+    container.addEventListener("mousemove",  onMouseMove);
+    container.addEventListener("mouseleave", onMouseLeave);
+    container.addEventListener("touchmove",  onTouchMove as EventListener, { passive: true });
+    window.addEventListener("resize",        onResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      container.removeEventListener("mousemove",  onMouseMove);
+      container.removeEventListener("mouseleave", onMouseLeave);
+      container.removeEventListener("touchmove",  onTouchMove as EventListener);
+      window.removeEventListener("resize",        onResize);
+    };
   }, []);
 
   // Track mobile viewport
@@ -251,19 +392,30 @@ export default function NetworkSection() {
   return (
     <section
       ref={containerRef}
-      className="relative overflow-hidden bg-black w-full min-w-0"
+      className="relative overflow-hidden w-full min-w-0"
+      style={{ background: "#000000" }}
     >
       <div
         ref={stickyRef}
-        className="h-screen min-h-[100dvh] w-full max-w-full overflow-hidden touch-none flex items-center justify-center"
+        className="h-screen min-h-[100dvh] w-full max-w-full overflow-hidden touch-none flex items-center justify-center relative"
+        style={{ background: "#000000" }}
       >
+        {/* Star particle background */}
+        <canvas
+          ref={starCanvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ display: "block", zIndex: 0 }}
+        />
+
         {isClient && (
-          <div className="absolute flex items-center justify-center w-full h-full md:inset-0">
+          <div className="absolute flex items-center justify-center w-full h-full md:inset-0" style={{ zIndex: 1 }}>
             <div className="w-[88vw] h-[88vw] max-h-[75vh] md:w-full md:h-full md:max-h-none" onWheel={(e) => e.stopPropagation()}>
             <Globe
               ref={globeRef}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-              backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+              backgroundImageUrl=""
+              backgroundColor="rgba(0,0,0,0)"
+              rendererConfig={{ alpha: true, antialias: true }}
 
               // --- Point markers ---
               pointsData={globePoints}

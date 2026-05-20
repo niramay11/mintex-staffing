@@ -8,12 +8,23 @@ import type { StatisticsData, StatItem, Industry, MarketPoint } from "../../api/
 type MediaItem = { id: string; src: string; alt: string; url: string };
 type InsightsData = { images: MediaItem[]; reels: MediaItem[] };
 
+const STORAGE_KEY = "mintex_admin_pw";
+
 // ─── Admin panel ─────────────────────────────────────────────────────────────
 export default function AdminInsightsPage() {
   const [password, setPassword] = useState("");
+  const [savedPassword, setSavedPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [authError, setAuthError] = useState("");
   const [activeTab, setActiveTab] = useState<"media" | "impact">("media");
+  const [loading, setLoading] = useState(true);
+
+  // Restore session from localStorage on mount (browser only)
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { setSavedPassword(saved); setAuthenticated(true); }
+    setLoading(false);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +35,21 @@ export default function AdminInsightsPage() {
     });
     if (res.status === 401) { setAuthError("Wrong password"); return; }
     setAuthError("");
+    localStorage.setItem(STORAGE_KEY, password);
+    setSavedPassword(password);
     setAuthenticated(true);
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setAuthenticated(false);
+    setPassword("");
+    setSavedPassword("");
+  };
+
+  const activePassword = password || savedPassword;
+
+  if (loading) return <div className="min-h-screen bg-gray-950" />;
 
   if (!authenticated) {
     return (
@@ -53,7 +77,12 @@ export default function AdminInsightsPage() {
       {/* Tab bar */}
       <div className="border-b border-gray-800 px-6 md:px-10 pt-8">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold">Admin Panel</h1>
+            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-red-400 transition-colors">
+              Logout
+            </button>
+          </div>
           <div className="flex gap-1">
             {(["media", "impact"] as const).map((tab) => (
               <button
@@ -74,8 +103,8 @@ export default function AdminInsightsPage() {
 
       <div className="px-6 md:px-10 py-8 max-w-5xl mx-auto">
         {activeTab === "media"
-          ? <MediaTab password={password} />
-          : <ImpactTab password={password} />}
+          ? <MediaTab password={activePassword} />
+          : <ImpactTab password={activePassword} />}
       </div>
     </div>
   );
@@ -405,8 +434,18 @@ function IndustriesEditor({ data, saving, saved, onSave }: {
             </div>
             <div className="col-span-3 flex items-center gap-2">
               <input type="color" value={ind.color} onChange={(e) => update(i, "color", e.target.value)}
-                className="w-10 h-9 rounded cursor-pointer bg-transparent border border-gray-700" />
-              <span className="text-xs text-gray-500 font-mono">{ind.color}</span>
+                className="w-10 h-9 rounded cursor-pointer bg-transparent border border-gray-700 shrink-0" />
+              <input
+                type="text"
+                value={ind.color}
+                onChange={(e) => {
+                  const val = e.target.value.startsWith("#") ? e.target.value : "#" + e.target.value;
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(val)) update(i, "color", val);
+                }}
+                maxLength={7}
+                placeholder="#22d3ee"
+                className="w-full px-2 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-xs font-mono focus:border-cyan-500 focus:outline-none"
+              />
             </div>
             <div className="col-span-1 flex justify-center">
               <button type="button" onClick={() => removeRow(i)}

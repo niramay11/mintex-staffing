@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -114,9 +114,9 @@ const HeroSection = () => {
                 {/* Client Images Container - Only one image visible at a time */}
                 <div className="relative w-full h-80 md:h-96 flex items-center justify-start px-4 -mt-8 md:-mt-12">
                     {/* First Client Image */}
-                    <div 
+                    <div
                         ref={imageRefs[0]}
-                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 pointer-events-none"
+                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 pointer-events-none drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                     >
                         <Image
                             src={ClientImg}
@@ -128,9 +128,9 @@ const HeroSection = () => {
                     </div>
 
                     {/* Second Client Image */}
-                    <div 
+                    <div
                         ref={imageRefs[1]}
-                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 pointer-events-none"
+                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 pointer-events-none drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                     >
                         <Image
                             src={Client2Img}
@@ -141,9 +141,9 @@ const HeroSection = () => {
                     </div>
 
                     {/* Third Client Image */}
-                    <div 
+                    <div
                         ref={imageRefs[2]}
-                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 pointer-events-none"
+                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 pointer-events-none drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                     >
                         <Image
                             src={Client3Img}
@@ -154,9 +154,9 @@ const HeroSection = () => {
                     </div>
 
                     {/* Fourth Client Image */}
-                    <div 
+                    <div
                         ref={imageRefs[3]}
-                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 -mt-8 md:-mt-12 pointer-events-none"
+                        className="relative w-64 h-80 sm:w-72 sm:h-96 md:w-80 md:h-96 z-20 shrink-0 -ml-4 md:-ml-6 -mt-8 md:-mt-12 pointer-events-none drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                     >
                         <Image
                             src={Client4Img}

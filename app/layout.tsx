@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "./components/Navbar";
+import SiteShell from "./components/SiteShell";
 import ScrollToTop from "./components/ScrollToTop";
 import { Inter, Bebas_Neue } from "next/font/google";
-import Footer from "./components/Footer";
 import localFont from "next/font/local";
 
 const inter = Inter({
@@ -57,9 +56,9 @@ export default function RootLayout({
         className={`${inter.variable} ${bebasNeue.variable} ${gilroy.variable} min-h-screen bg-slate-950 text-slate-50`}
       >
         <ScrollToTop />
-        <Navbar />
-        {children}
-        <Footer />
+        <SiteShell>
+          {children}
+        </SiteShell>
       </body>
     </html>
   );
