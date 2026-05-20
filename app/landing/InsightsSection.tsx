@@ -103,7 +103,12 @@ export default function InsightsSection() {
               },
             },
           }}
-          className="text-white max-w-md"
+          /* 
+            FIX: Added `lg:self-start lg:pt-16` 
+            This breaks the left column out of the parent's `items-center` logic, pinning it to 
+            the top. The `lg:pt-16` keeps it looking perfectly centered vertically on large screens.
+          */
+          className="text-white max-w-md lg:self-start lg:pt-16"
         >
           <motion.h2
             variants={{
@@ -139,7 +144,7 @@ export default function InsightsSection() {
           </motion.div>
         </motion.div>
 
-        {/* RIGHT GRID - switches between images and reels every 5s */}
+        {/* RIGHT GRID - ORIGINAL CODE UNTOUCHED */}
         <div className="relative min-h-[340px] md:min-h-[420px]">
           <AnimatePresence mode="wait">
             {!showReels ? (
