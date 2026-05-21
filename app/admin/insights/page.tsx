@@ -16,7 +16,7 @@ export default function AdminInsightsPage() {
   const [savedPassword, setSavedPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [activeTab, setActiveTab] = useState<"media" | "impact">("media");
+  const [activeTab, setActiveTab] = useState<"media" | "impact" | "history">("media");
   const [loading, setLoading] = useState(true);
 
   // Restore session from localStorage on mount (browser only)
@@ -84,7 +84,7 @@ export default function AdminInsightsPage() {
             </button>
           </div>
           <div className="flex gap-1">
-            {(["media", "impact"] as const).map((tab) => (
+            {(["media", "impact", "history"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -94,7 +94,7 @@ export default function AdminInsightsPage() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                {tab === "media" ? "Insights Media" : "Our Impact Stats"}
+                {tab === "media" ? "Insights Media" : tab === "impact" ? "Our Impact Stats" : "History Images"}
               </button>
             ))}
           </div>
@@ -102,9 +102,9 @@ export default function AdminInsightsPage() {
       </div>
 
       <div className="px-6 md:px-10 py-8 max-w-5xl mx-auto">
-        {activeTab === "media"
-          ? <MediaTab password={activePassword} />
-          : <ImpactTab password={activePassword} />}
+        {activeTab === "media" && <MediaTab password={activePassword} />}
+        {activeTab === "impact" && <ImpactTab password={activePassword} />}
+        {activeTab === "history" && <HistoryImagesTab password={activePassword} />}
       </div>
     </div>
   );
@@ -499,6 +499,169 @@ function MarketDataEditor({ data, saving, saved, onSave }: {
       <SaveBtn section="marketdata" saving={saving} saved={saved} />
     </form>
   ));
+}
+
+// ─── History Images tab ───────────────────────────────────────────────────────
+const HISTORY_YEARS = [
+  { year: "2002", label: "When We Started" },
+  { year: "2010", label: "Expanding Horizons" },
+  { year: "2018", label: "Going Global" },
+  { year: "2024", label: "The Future Is Now" },
+];
+
+type HistoryImageItem = { id: string; year: string; image_src: string };
+
+function HistoryImagesTab({ password }: { password: string }) {
+  const [items, setItems]         = useState<HistoryImageItem[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ year: string; ok: boolean; text: string } | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const showStatus = (year: string, ok: boolean, text: string) => {
+    setStatusMsg({ year, ok, text });
+    setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch("/api/history-images");
+      if (!res.ok) { setLoadError(`Failed to load (${res.status})`); return; }
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+      setLoadError("");
+    } catch (e) {
+      setLoadError("Network error — could not load images.");
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const getImageForYear = (year: string) => items.find((i) => i.year === year);
+
+  const handleUpload = async (year: string) => {
+    const file = fileRefs.current[year]?.files?.[0];
+    if (!file) { showStatus(year, false, "Please select a file first."); return; }
+
+    setUploading(year);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("year", year);
+      formData.append("password", password);
+
+      const res = await fetch("/api/history-images", { method: "POST", body: formData });
+      const json = await res.json();
+
+      if (!res.ok) {
+        showStatus(year, false, json.error || `Upload failed (${res.status})`);
+      } else {
+        if (fileRefs.current[year]) fileRefs.current[year]!.value = "";
+        showStatus(year, true, "Image uploaded successfully.");
+        await fetchData();
+      }
+    } catch {
+      showStatus(year, false, "Network error — upload failed.");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleDelete = async (year: string) => {
+    if (!confirm(`Remove the image for ${year}?`)) return;
+    try {
+      const res = await fetch("/api/history-images", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year, password }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showStatus(year, false, json.error || `Delete failed (${res.status})`);
+      } else {
+        showStatus(year, true, "Image removed.");
+        await fetchData();
+      }
+    } catch {
+      showStatus(year, false, "Network error — delete failed.");
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-gray-400 mb-6">
+        Upload or replace the image for each era shown in the About Us history section. If no image is uploaded, the default image is used.
+      </p>
+
+      {loadError && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-red-900/40 border border-red-700 text-red-400 text-sm">
+          {loadError}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {HISTORY_YEARS.map(({ year, label }) => {
+          const existing    = getImageForYear(year);
+          const isUploading = uploading === year;
+          const msg         = statusMsg?.year === year ? statusMsg : null;
+
+          return (
+            <div key={year} className="bg-gray-900 rounded-xl border border-gray-800 p-5 flex flex-col gap-3">
+              {/* Top row: year + preview + controls */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                {/* Year label */}
+                <div className="w-24 shrink-0">
+                  <p className="text-xl font-bold text-[#FBBF24]">{year}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                </div>
+
+                {/* Preview */}
+                <div className="w-28 shrink-0 rounded-lg overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center" style={{ height: 72 }}>
+                  {existing ? (
+                    <img src={existing.image_src} alt={year} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-gray-500 text-center px-2">Default</span>
+                  )}
+                </div>
+
+                {/* Controls */}
+                <div className="flex-1 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  <input
+                    ref={(el) => { fileRefs.current[year] = el; }}
+                    type="file"
+                    accept="image/*"
+                    className="text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-cyan-700 file:text-white file:cursor-pointer file:text-sm"
+                  />
+                  <button
+                    onClick={() => handleUpload(year)}
+                    disabled={isUploading}
+                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 shrink-0"
+                  >
+                    {isUploading ? "Uploading…" : existing ? "Replace" : "Upload"}
+                  </button>
+                  {existing && (
+                    <button
+                      onClick={() => handleDelete(year)}
+                      className="px-4 py-2 rounded-lg bg-red-900/40 hover:bg-red-600 text-red-400 hover:text-white text-sm font-semibold transition-colors shrink-0"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Inline status message */}
+              {msg && (
+                <p className={`text-xs font-medium px-1 ${msg.ok ? "text-green-400" : "text-red-400"}`}>
+                  {msg.ok ? "✓" : "✗"} {msg.text}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ─── Retention editor ─────────────────────────────────────────────────────────
