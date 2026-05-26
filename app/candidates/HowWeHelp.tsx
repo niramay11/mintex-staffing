@@ -78,32 +78,157 @@ const HowWeHelp = () => {
                 {/* Mobile Grid / Desktop Absolute Layout */}
                 <div className="relative w-full grid grid-cols-2 gap-4 sm:gap-8 md:block md:h-full z-20">
 
-                    {/* Pair 1 */}
-                    <div className="md:absolute md:left-[2%] lg:left-[8%] md:top-[18%]">
-                        <FeatureCard title="RESUME MAKEOVER" subtitle="TO STAND OUT" delay={0.2} direction={-20} />
-                    </div>
-                    <div className="md:absolute md:right-[2%] lg:right-[8%] md:top-[18%] flex justify-end">
-                        <FeatureCard title="SALARY NEGOTIATION" subtitle="GET YOUR WORTH" delay={0.3} direction={20} alignRight />
-                    </div>
+    {/* Pair 1 */}
+    <div className="md:absolute md:left-[2%] lg:left-[8%] md:top-[18%]">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="RESUME MAKEOVER"
+                subtitle="TO STAND OUT"
+                delay={0.2}
+                direction={-20}
+            />
+        </div>
+    </div>
 
-                    {/* Pair 2 */}
-                    <div className="md:absolute md:left-[0%] lg:left-[2%] md:top-[50%] md:-translate-y-1/2">
-                        <FeatureCard title="INTERVIEW PREP" subtitle="CONFIDENCE FIRST" delay={0.4} direction={-30} />
-                    </div>
-                    <div className="md:absolute md:right-[0%] lg:right-[2%] md:top-[50%] md:-translate-y-1/2 flex justify-end">
-                        <FeatureCard title="DIRECT PLACEMENT" subtitle="TOP TIER ROLES" delay={0.5} direction={30} alignRight />
-                    </div>
+    <div className="md:absolute md:right-[2%] lg:right-[8%] md:top-[18%] flex justify-end">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="SALARY NEGOTIATION"
+                subtitle="GET YOUR WORTH"
+                delay={0.3}
+                direction={20}
+                alignRight
+            />
+        </div>
+    </div>
 
-                    {/* Pair 3 */}
-                    <div className="md:absolute md:left-[2%] lg:left-[8%] md:bottom-[18%]">
-                        <FeatureCard title="SKILL ALIGNMENT" subtitle="MATCHING AMBITION" delay={0.6} direction={-20} />
-                    </div>
-                    <div className="md:absolute md:right-[2%] lg:right-[8%] md:bottom-[18%] flex justify-end">
-                        <FeatureCard title="CAREER COACHING" subtitle="LONG TERM GROWTH" delay={0.7} direction={20} alignRight />
-                    </div>
+    {/* Pair 2 */}
+    <div className="md:absolute md:left-[0%] lg:left-[2%] md:top-[50%] md:-translate-y-1/2">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="INTERVIEW PREP"
+                subtitle="CONFIDENCE FIRST"
+                delay={0.4}
+                direction={-30}
+            />
+        </div>
+    </div>
 
-                </div>
+    <div className="md:absolute md:right-[0%] lg:right-[2%] md:top-[50%] md:-translate-y-1/2 flex justify-end">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="DIRECT PLACEMENT"
+                subtitle="TOP TIER ROLES"
+                delay={0.5}
+                direction={30}
+                alignRight
+            />
+        </div>
+    </div>
 
+    {/* Pair 3 */}
+    <div className="md:absolute md:left-[2%] lg:left-[8%] md:bottom-[18%]">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="SKILL ALIGNMENT"
+                subtitle="MATCHING AMBITION"
+                delay={0.6}
+                direction={-20}
+            />
+        </div>
+    </div>
+
+    <div className="md:absolute md:right-[2%] lg:right-[8%] md:bottom-[18%] flex justify-end">
+        <div className="
+            group
+            rounded-[32px]
+            overflow-hidden
+            border border-white/10
+            bg-white/5
+            backdrop-blur-xl
+            transition-all duration-500 ease-out
+            hover:scale-105
+            hover:-translate-y-3
+            hover:bg-white/10
+            hover:border-white/20
+            hover:shadow-[0_20px_80px_rgba(255,255,255,0.15)]
+        ">
+            <FeatureCard
+                title="CAREER COACHING"
+                subtitle="LONG TERM GROWTH"
+                delay={0.7}
+                direction={20}
+                alignRight
+            />
+        </div>
+    </div>
+
+</div>
                 {/* Bottom CTA Section */}
                 <div className=" flex flex-col items-center gap-2 z-20 mt-8 md:mt-0">
                     <motion.div

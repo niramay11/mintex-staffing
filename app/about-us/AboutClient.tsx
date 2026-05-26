@@ -50,7 +50,7 @@ const AboutClient = () => {
                      leading-none tracking-wide font-bebas 
                      text-[#7DD3FC] px-[10vw] whitespace-nowrap"
                                 >
-                                    POWERING
+                                    POWERING THE FUTURE
                                 </h1>
                             ))}
                         </div>
@@ -64,7 +64,7 @@ const AboutClient = () => {
                      leading-none tracking-wide font-bebas 
                      text-[#7DD3FC] px-[10vw] whitespace-nowrap"
                                 >
-                                    POWERING
+                                    OF HIRING
                                 </h1>
                             ))}
                         </div>

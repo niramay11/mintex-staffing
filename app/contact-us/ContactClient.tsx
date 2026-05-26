@@ -195,7 +195,7 @@ const ContactClient = () => {
                                             <div>
                                                 <h3 className="text-lg font-bold mb-1 uppercase tracking-tight">Office Address</h3>
                                                 <p className="text-gray-400 text-sm leading-relaxed">
-                                                    99hi Around St, Phu City, 28292, Rau Indonesia
+                                                   2163 Oak Tree Rd, Edison, NJ 08820
                                                 </p>
                                             </div>
                                         </div>
@@ -207,7 +207,7 @@ const ContactClient = () => {
                                             <div>
                                                 <h3 className="text-lg font-bold mb-1 uppercase tracking-tight">Call Us</h3>
                                                 <p className="text-gray-400 text-sm">
-                                                    +(827) 123-456-7891
+                                                    +1 (732) 983-5723
                                                 </p>
                                             </div>
                                         </div>

@@ -112,7 +112,7 @@ const HeroSection = () => {
                 </h1>
 
                 {/* Client Images Container - Only one image visible at a time */}
-                <div className="relative w-full h-80 md:h-96 flex items-center justify-start px-4 -mt-8 md:-mt-12">
+                <div className="relative w-full h-80 md:h-96 flex items-center justify-center px-4 -mt-8 md:-mt-12">
                     {/* First Client Image */}
                     <div
                         ref={imageRefs[0]}

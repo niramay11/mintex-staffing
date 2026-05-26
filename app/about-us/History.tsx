@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import AboutHistory from '../assets/about_history.png';
@@ -10,7 +10,7 @@ const historyData = [
   {
     year: "2002",
     title: "WHEN WE STARTED",
-    description: "At Mintex Staffing, we don't just fill positions we connect ambition with opportunity. Born out of Mintex Tech, our journey began when candidates walked into our office looking for guidance. We helped them break through barriers and land roles.",
+    description: "At Mintex Staffing, we don't just fill positions — we connect ambition with opportunity. Born out of Mintex Tech, our journey began when candidates walked into our office looking for guidance. We helped them break through barriers and land roles.",
   },
   {
     year: "2010",
@@ -31,21 +31,16 @@ const historyData = [
 
 type HistoryImageItem = { year: string; image_src: string };
 
+// Each item gets exactly 1 viewport-height of scroll range.
+// Container = (N+1) × 100vh so the last item also has a full range.
+const SECTION_HEIGHT = `${(historyData.length + 1) * 100}vh`;
+
 const History = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef              = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [customImages, setCustomImages] = useState<Record<string, string>>({});
 
-  // Refs for stable event handlers — no stale closures
-  const activeIndexRef = useRef(0);
-  const inViewRef     = useRef(false);
-  const lockRef       = useRef(false);
-  const touchStartY   = useRef(0);
-
-  // Sync state → ref
-  useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
-
-  // Fetch custom images from admin
+  // Fetch admin-uploaded images
   useEffect(() => {
     fetch('/api/history-images')
       .then((r) => r.json())
@@ -57,91 +52,84 @@ const History = () => {
       .catch(() => {});
   }, []);
 
-  // IntersectionObserver — uses ref so wheel handler always has current value
+  // ─── Scroll-driven index — no wheel hijacking ────────────────────────────────
+  // The outer div is SECTION_HEIGHT tall; the inner div is sticky top-0 h-screen.
+  // We read scroll position every frame and derive which item to show.
   useEffect(() => {
+    const onScroll = () => {
+      const el = containerRef.current;
+      if (!el) return;
+
+      const rect              = el.getBoundingClientRect();
+      const containerH        = el.offsetHeight;
+      const viewportH         = window.innerHeight;
+      const scrollableDistance = containerH - viewportH;   // total scroll within section
+      const scrolledIn        = -rect.top;                 // px scrolled into the section
+
+      if (scrolledIn <= 0) {
+        setActiveIndex(0);
+        return;
+      }
+      if (scrolledIn >= scrollableDistance) {
+        setActiveIndex(historyData.length - 1);
+        return;
+      }
+
+      // Each item occupies (1 / N) of the scrollable range
+      const progress = scrolledIn / scrollableDistance;
+      const index    = Math.min(
+        Math.floor(progress * historyData.length),
+        historyData.length - 1,
+      );
+      setActiveIndex(index);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // resolve initial state
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ─── Dot click → smooth-scroll to that item's position ──────────────────────
+  const scrollToIndex = useCallback((i: number) => {
     const el = containerRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        inViewRef.current = entry.isIntersecting && entry.intersectionRatio >= 0.5;
-      },
-      { threshold: 0.5 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  // Advance helper — returns true if the index changed
-  const tryAdvance = (dir: 1 | -1): boolean => {
-    if (lockRef.current) return false;
-    const next = activeIndexRef.current + dir;
-    if (next < 0 || next >= historyData.length) return false;
-    lockRef.current = true;
-    activeIndexRef.current = next;
-    setActiveIndex(next);
-    setTimeout(() => { lockRef.current = false; }, 700);
-    return true;
-  };
-
-  // Wheel — registered once, reads from refs
-  useEffect(() => {
-    const onWheel = (e: WheelEvent) => {
-      if (!inViewRef.current) return;
-      const dir = e.deltaY > 0 ? 1 : -1;
-      const next = activeIndexRef.current + dir;
-      // Only capture scroll when there is a valid next item
-      if (next >= 0 && next < historyData.length) {
-        e.preventDefault();
-        tryAdvance(dir);
-      }
-      // At boundaries, scroll passes through normally
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Touch swipe
-  useEffect(() => {
-    const onStart = (e: TouchEvent) => { touchStartY.current = e.touches[0].clientY; };
-    const onEnd   = (e: TouchEvent) => {
-      if (!inViewRef.current) return;
-      const dy = touchStartY.current - e.changedTouches[0].clientY;
-      if (Math.abs(dy) < 50) return;
-      tryAdvance(dy > 0 ? 1 : -1);
-    };
-    window.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchend',   onEnd,   { passive: true });
-    return () => {
-      window.removeEventListener('touchstart', onStart);
-      window.removeEventListener('touchend',   onEnd);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const containerH         = el.offsetHeight;
+    const viewportH          = window.innerHeight;
+    const scrollableDistance = containerH - viewportH;
+    const containerTop       = el.getBoundingClientRect().top + window.scrollY;
+    // Place scroll so that `i` is at the start of its range, plus a small offset
+    const targetScroll = containerTop + (scrollableDistance / historyData.length) * i + 4;
+    window.scrollTo({ top: targetScroll, behavior: 'smooth' });
   }, []);
 
   const item     = historyData[activeIndex];
   const imageSrc = customImages[item.year] || AboutHistory;
-  const progress = activeIndex / (historyData.length - 1); // 0 → 1
+  const progress = activeIndex / (historyData.length - 1); // 0 → 1 for the timeline bar
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen bg-black overflow-hidden">
-      <Floats />
+    // Outer: tall container that creates scroll space
+    <div ref={containerRef} className="relative w-full" style={{ height: SECTION_HEIGHT }}>
 
-      <div className="w-full h-full flex items-center justify-center">
+      {/* Inner: sticks to the top while the outer scrolls past */}
+      <div className="sticky top-0 h-screen w-full bg-black overflow-hidden flex items-center justify-center">
+        <Floats />
+
         <div className="container mx-auto px-4 max-w-7xl w-full h-full flex flex-col justify-center">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-center w-full">
 
             {/* ── Left: text + timeline ── */}
             <div className="flex flex-col gap-4 md:gap-8 relative z-10 order-2 md:order-1 px-4 md:px-0">
+
+              {/* Fixed-height text area prevents layout shifts */}
               <div className="relative h-[260px] md:h-[300px] overflow-hidden">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeIndex}
                     className="absolute top-0 left-0 w-full"
-                    initial={{ opacity: 0, y: 28 }}
+                    initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    exit={{ opacity: 0, y: -16 }}
+                    transition={{ duration: 0.38, ease: "easeOut" }}
                   >
                     <h2 className="font-bebas text-4xl md:text-6xl tracking-wide mb-2 md:mb-4">
                       <span className="text-[#FBBF24]">{item.year} — {item.title}</span>
@@ -154,51 +142,45 @@ const History = () => {
               </div>
 
               {/* Timeline bar */}
-              <div className="w-full relative h-5 mt-2 md:mt-6 flex items-center justify-between">
+              <div className="w-full relative h-5 flex items-center justify-between">
                 {/* Track */}
                 <div className="absolute left-0 right-0 h-0.5 bg-gray-800 top-1/2 -translate-y-1/2" />
                 {/* Filled progress */}
                 <motion.div
                   className="absolute left-0 h-0.5 bg-[#FBBF24] top-1/2 -translate-y-1/2 origin-left"
                   animate={{ width: `${progress * 100}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
                 />
                 {/* Dots */}
                 {historyData.map((d, i) => (
                   <motion.button
                     key={i}
-                    onClick={() => {
-                      if (lockRef.current) return;
-                      lockRef.current = true;
-                      activeIndexRef.current = i;
-                      setActiveIndex(i);
-                      setTimeout(() => { lockRef.current = false; }, 700);
-                    }}
+                    onClick={() => scrollToIndex(i)}
                     title={d.year}
                     className="relative z-10 w-3 h-3 md:w-4 md:h-4 rounded-full border-2 border-black cursor-pointer focus:outline-none"
                     style={{ backgroundColor: activeIndex >= i ? '#FBBF24' : '#374151' }}
                     animate={{ scale: activeIndex === i ? 1.5 : 1 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.25 }}
                   />
                 ))}
               </div>
 
-              {/* Scroll hint */}
-              <p className="text-xs text-gray-600 mt-1 select-none">
-                Scroll or swipe to navigate · {activeIndex + 1} / {historyData.length}
+              {/* Counter */}
+              <p className="text-xs text-gray-600 select-none">
+                {activeIndex + 1} / {historyData.length}
               </p>
             </div>
 
             {/* ── Right: image ── */}
-            <div className="relative h-[220px] md:h-[500px] w-full flex items-center justify-center order-1 md:order-2">
+            <div className="relative h-[220px] md:h-[480px] w-full flex items-center justify-center order-1 md:order-2">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeIndex}
                   className="absolute inset-0 w-full h-full"
-                  initial={{ opacity: 0, scale: 0.96 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.03 }}
-                  transition={{ duration: 0.45, ease: "easeOut" }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
                 >
                   <div className="relative w-full h-full overflow-hidden rounded-xl">
                     <Image
