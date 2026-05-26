@@ -137,7 +137,7 @@ const Hero = () => {
 
         {/* Cards */}
         <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 lg:gap-8 mt-8 md:mt-12 lg:mt-16 mb-10"
+          className="w-full flex flex-col sm:flex-row justify-start gap-5 md:gap-7 mt-10 md:mt-14 lg:mt-18 mb-10"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: false }}
@@ -145,14 +145,14 @@ const Hero = () => {
         >
           {/* Candidates */}
           <motion.div
-            className="group relative w-full sm:w-1/2 lg:w-80 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            className="group relative w-full sm:w-[48%] lg:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-7 md:p-10 flex flex-col gap-5 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col gap-4 h-full justify-between">
+            <div className="relative z-10 flex flex-col gap-5 h-full justify-between">
               <div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Candidates</h3>
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">Candidates</h3>
                 <p className="text-gray-300 font-light text-sm md:text-base leading-relaxed">
                   Your next big role is waiting...
                 </p>
@@ -160,7 +160,7 @@ const Hero = () => {
 
               <Link
                 href="/candidates/jobs"
-                className="w-full sm:w-auto px-6 py-3 text-white text-xs md:text-sm font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                className="w-full px-6 py-3.5 text-white text-sm md:text-base font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
                 style={{
                   background: 'rgba(155, 81, 224, 0.18)',
                   backdropFilter: 'blur(20px)',
@@ -176,14 +176,14 @@ const Hero = () => {
 
           {/* Clients */}
           <motion.div
-            className="group relative w-full sm:w-1/2 lg:w-80 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            className="group relative w-full sm:w-[48%] lg:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-7 md:p-10 flex flex-col gap-5 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col gap-4 h-full justify-between">
+            <div className="relative z-10 flex flex-col gap-5 h-full justify-between">
               <div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Clients</h3>
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">Clients</h3>
                 <p className="text-gray-300 font-light text-sm md:text-base leading-relaxed">
                   Let's shape your future team...
                 </p>
@@ -191,7 +191,7 @@ const Hero = () => {
 
               <Link
                 href="/clients/portal"
-                className="w-full sm:w-auto px-6 py-3 text-white text-xs md:text-sm font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                className="w-full px-6 py-3.5 text-white text-sm md:text-base font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
                 style={{
                   background: 'rgba(155, 81, 224, 0.18)',
                   backdropFilter: 'blur(20px)',

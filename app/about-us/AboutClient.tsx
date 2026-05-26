@@ -38,7 +38,7 @@ const AboutClient = () => {
                             repeat: Infinity,
                             repeatType: "loop",
                             ease: "linear",
-                            duration: 40, // slower = smoother
+                            duration: 15,
                         }}
                     >
                         {/* First copy */}
@@ -50,13 +50,13 @@ const AboutClient = () => {
                      leading-none tracking-wide font-bebas 
                      text-[#7DD3FC] px-[10vw] whitespace-nowrap"
                                 >
-                                    POWERING THE FUTURE
+                                    POWERING THE FUTURE OF HIRING
                                 </h1>
                             ))}
                         </div>
 
                         {/* Second copy (IDENTICAL) */}
-                        <div className="flex">
+                        {/* <div className="flex">
                             {[...Array(6)].map((_, i) => (
                                 <h1
                                     key={`b-${i}`}
@@ -67,7 +67,7 @@ const AboutClient = () => {
                                     OF HIRING
                                 </h1>
                             ))}
-                        </div>
+                        </div> */}
                     </motion.div>
                 </div>
 

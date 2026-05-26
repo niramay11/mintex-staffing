@@ -20,13 +20,13 @@ const ServedSectorsClient = () => {
     };
 
     const snapTo = (index: number) => {
+        if (lockRef.current) return;
         const clamped = Math.max(0, Math.min(SECTORS.length - 1, index));
-        if (clamped === activeCardRef.current && lockRef.current) return;
-        lockRef.current     = true;
+        lockRef.current = true;
         activeCardRef.current = clamped;
         window.scrollTo({ top: getCardScrollTop(clamped), behavior: 'smooth' });
-        // Unlock after the smooth-scroll animation (~700 ms)
-        setTimeout(() => { lockRef.current = false; }, 750);
+        // Unlock after smooth-scroll finishes (~1000ms to be safe)
+        setTimeout(() => { lockRef.current = false; }, 1000);
     };
 
     // ── Track whether user is inside the cards section ─────────────────────────
@@ -35,13 +35,10 @@ const ServedSectorsClient = () => {
             const el = cardsRef.current;
             if (!el) return;
             const rect = el.getBoundingClientRect();
-            // "inside" = top of section ≤ viewport top AND bottom ≥ viewport bottom
             inSectionRef.current = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
 
-            // Keep activeCardRef in sync with actual scroll position so back-navigation works
-            if (inSectionRef.current) {
-                const scrolledIn = window.scrollY - (el.getBoundingClientRect().top + window.scrollY - window.scrollY);
-                // simpler: derive from how far past the section top we are
+            // Only sync activeCardRef when NOT mid-snap — prevents overwriting the snap target
+            if (inSectionRef.current && !lockRef.current) {
                 const sectionTop = el.getBoundingClientRect().top + window.scrollY;
                 const rawIndex = Math.round((window.scrollY - sectionTop) / window.innerHeight);
                 activeCardRef.current = Math.max(0, Math.min(SECTORS.length - 1, rawIndex));
