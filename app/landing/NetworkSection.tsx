@@ -239,7 +239,7 @@ export default function NetworkSection() {
     };
   }, [isClient]);
 
-  // GSAP ScrollTrigger — auto-scrolls through the globe animation when section enters view
+  // GSAP ScrollTrigger — globe scroll animation
   useEffect(() => {
     if (!containerRef.current || !stickyRef.current) return;
 
@@ -247,53 +247,83 @@ export default function NetworkSection() {
 
     const ctx = gsap.context(() => {
       ScrollTrigger.create({
-        id: "globe-section",
         trigger: containerRef.current,
         start: "top top",
         end: scrollDistance,
         pin: stickyRef.current,
         pinSpacing: true,
-        scrub: 1,
+        scrub: 0.5,
         anticipatePin: 1,
         markers: false,
 
         onUpdate: (self) => {
+          const progress = self.progress;
           const globe = globeRef.current;
-          if (!globe?.pointOfView) return;
+          if (!globe || !globe.pointOfView) return;
 
-          const progress = Math.max(0, Math.min(1, self.progress));
+          // Keep controls locked during scroll
+          if (globe.controls) {
+            const controls = globe.controls();
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.enableRotate = false;
+            controls.enableDamping = false;
+            controls.minDistance = 0;
+            controls.maxDistance = Infinity;
+          }
 
+          const clampedProgress = Math.max(0, Math.min(1, progress));
           const initialAltitude = 2.5;
-          const finalAltitude   = 1.5;
+          const finalAltitude = 1.2;
 
-          if (progress === 0) {
+          if (clampedProgress === 0) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: initialAltitude }, 0);
             return;
           }
 
           // Phase 1 (0–0.4): rotate from China → USA
-          // Phase 2 (0.4–1): gentle zoom into USA
-          const phase1 = Math.min(1, progress / 0.4);
-          const phase2 = Math.max(0, (progress - 0.4) / 0.6);
+          // Phase 2 (0.4–1): zoom into USA
+          const phase1Progress = Math.min(1, clampedProgress / 0.4);
+          const phase2Progress = Math.max(0, (clampedProgress - 0.4) / 0.6);
 
-          const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * phase1;
-          const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * phase1;
+          const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * phase1Progress;
+          const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * phase1Progress;
 
-          const easedZoom = phase2 * phase2 * (3 - 2 * phase2);
-          const altitude  = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
+          const easedZoom = phase2Progress * phase2Progress * (3 - 2 * phase2Progress);
+          const altitude = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
 
           globe.pointOfView({ lat, lng, altitude: Math.max(finalAltitude, altitude) }, 0);
         },
 
+        onEnter: () => {
+          const globe = globeRef.current;
+          if (globe && globe.pointOfView) {
+            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+          }
+        },
+
+        onEnterBack: () => {
+          const globe = globeRef.current;
+          if (globe && globe.pointOfView) {
+            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+          }
+          if (globe && globe.controls) {
+            const controls = globe.controls();
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.enableRotate = false;
+          }
+        },
+
         onLeave: () => {
           const globe = globeRef.current;
-          if (globe?.pointOfView) {
-            globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.5 }, 0);
+          if (globe && globe.pointOfView) {
+            globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.2 }, 0);
           }
         },
       });
 
-      setTimeout(() => ScrollTrigger.refresh(), 300);
+      setTimeout(() => ScrollTrigger.refresh(), 200);
     }, containerRef);
 
     return () => ctx.revert();
@@ -355,7 +385,6 @@ export default function NetworkSection() {
             className="absolute flex items-center justify-center w-full h-full md:inset-0"
             style={{ zIndex: 1 }}
           >
-            {/* No onWheel stopPropagation — globe zoom is disabled via controls API */}
             <div className="w-[88vw] h-[88vw] max-h-[75vh] md:w-full md:h-full md:max-h-none">
               <Globe
                 ref={globeRef}
