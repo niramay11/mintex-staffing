@@ -11,8 +11,8 @@ export async function GET() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    const images = (data ?? []).filter((item) => item.type === "image");
-    const reels = (data ?? []).filter((item) => item.type === "reel");
+    const images = (data ?? []).filter((item) => item.type === "image" && !item.id.startsWith("history-"));
+    const reels = (data ?? []).filter((item) => item.type === "reel" && !item.id.startsWith("history-"));
 
     return NextResponse.json({ images, reels });
   } catch {

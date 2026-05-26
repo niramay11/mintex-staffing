@@ -72,106 +72,62 @@ function TiltCard({ children, className, delay }: { children: React.ReactNode; c
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
 
-  // Motion values for tilt effect
+  // Motion values for mouse tilt
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-
-  // Smooth spring physics for the tilt
   const mouseX = useSpring(x, { stiffness: 150, damping: 15 });
   const mouseY = useSpring(y, { stiffness: 150, damping: 15 });
-
-  // Autonomous Idle Animation
-  React.useEffect(() => {
-    if (isHovered) return;
-
-    let animationFrameId: number;
-    const startTime = Date.now();
-    // Random offset for each card so they don't move in perfect sync
-    const timeOffset = Math.random() * 10000;
-
-    const animate = () => {
-      const now = Date.now();
-      const elapsed = (now - startTime + timeOffset) / 1000; // time in seconds
-
-      // Gentle wobble pattern: Figure-8 or simple orbit
-      // Rotate X varies with Sin, Rotate Y with Cos (circular/elliptical path)
-      const idleX = Math.sin(elapsed * 0.5) * 8; // +/- 8 degrees
-      const idleY = Math.cos(elapsed * 0.3) * 8; // +/- 8 degrees (different frequency)
-
-      x.set(idleX);
-      y.set(idleY);
-
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isHovered, x, y]);
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const dragX = e.clientX - rect.left;
-    const dragY = e.clientY - rect.top;
-
-    // Calculate rotation (-15 to 15 degrees)
-    const rotateXPct = (dragY / height - 0.5) * 35; // Increased range for interaction
-    const rotateYPct = (dragX / width - 0.5) * -35;
-
-    x.set(rotateXPct);
-    y.set(rotateYPct);
-  }
-
-  function handleMouseEnter() {
-    setIsHovered(true);
+    x.set(((e.clientY - rect.top) / rect.height - 0.5) * 25);
+    y.set(((e.clientX - rect.left) / rect.width - 0.5) * -25);
   }
 
   function handleMouseLeave() {
     setIsHovered(false);
-    // Spring will handle the smooth return to the idle animation loop
+    x.set(0);
+    y.set(0);
   }
 
   // Scroll Entrance Animation Variants
   const variants: any = {
-    hidden: {
-      opacity: 0,
-      scale: 0.3,
-      rotate: 180, // Spin in
-      rotateX: -45, // Tilted back
-      z: -200,      // Far away
-      y: 100
-    },
+    hidden: { opacity: 0, scale: 0.5, y: 60 },
     visible: {
       opacity: 1,
       scale: 1,
-      rotate: 0,
-      rotateX: 0,
-      z: 0,
       y: 0,
-      transition: {
-        type: "spring",
-        stiffness: 260, // High snap
-        damping: 20,    // Bouncy
-        mass: 1,
-        delay: delay
-      }
+      transition: { type: "spring", stiffness: 200, damping: 22, delay }
     }
   };
+
+  // Idle float: gentle up-down with per-card phase offset via delay
+  const floatDuration = 3 + (delay % 0.6); // slightly different speed per card
+  const floatDelay = delay * 1.5;
 
   return (
     <motion.div
       ref={ref}
       variants={variants}
       onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
+      animate={isHovered ? {} : {
+        y: [0, -10, 0],
+        rotateZ: [0, 1, -1, 0],
+      }}
+      transition={isHovered ? {} : {
+        duration: floatDuration,
+        delay: floatDelay,
+        repeat: Infinity,
+        ease: "easeInOut",
+        repeatType: "loop",
+      }}
       style={{
         rotateX: mouseX,
         rotateY: mouseY,
-        transformStyle: "preserve-3d", // Critical for 3D effect
+        transformStyle: "preserve-3d",
       }}
       className={` ${className} group`}
     >

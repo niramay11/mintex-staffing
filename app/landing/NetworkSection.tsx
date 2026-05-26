@@ -4,11 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { useRouter } from "next/navigation";
 
 if (typeof window !== 'undefined') {
-    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+    gsap.registerPlugin(ScrollTrigger);
 }
 
 const Globe = dynamic(() => import("react-globe.gl"), { ssr: false });
@@ -38,7 +37,6 @@ export default function NetworkSection() {
   const stickyRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<any>(null);
   const starCanvasRef = useRef<HTMLCanvasElement>(null);
-  const autoScrollingRef = useRef(false);
   const [isClient, setIsClient] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -263,19 +261,10 @@ export default function NetworkSection() {
           const globe = globeRef.current;
           if (!globe?.pointOfView) return;
 
-          // Keep controls locked
-          if (globe.controls) {
-            const controls = globe.controls();
-            controls.enableZoom = false;
-            controls.enablePan = false;
-            controls.enableRotate = false;
-            controls.enableDamping = false;
-          }
-
           const progress = Math.max(0, Math.min(1, self.progress));
 
           const initialAltitude = 2.5;
-          const finalAltitude   = 1.5; // zoomed-out enough so globe fits nicely on screen
+          const finalAltitude   = 1.5;
 
           if (progress === 0) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: initialAltitude }, 0);
@@ -290,37 +279,10 @@ export default function NetworkSection() {
           const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * phase1;
           const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * phase1;
 
-          // smoothstep ease for zoom
           const easedZoom = phase2 * phase2 * (3 - 2 * phase2);
           const altitude  = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
 
           globe.pointOfView({ lat, lng, altitude: Math.max(finalAltitude, altitude) }, 0);
-        },
-
-        // When section enters viewport, auto-scroll through the full animation
-        onEnter: (self) => {
-          if (autoScrollingRef.current) return;
-          autoScrollingRef.current = true;
-          gsap.to(window, {
-            scrollTo: { y: self.end, autoKill: true },
-            duration: isMobile ? 2.5 : 3,
-            ease: "power2.inOut",
-            onComplete: () => { autoScrollingRef.current = false; },
-            onInterrupt: () => { autoScrollingRef.current = false; },
-          });
-        },
-
-        onEnterBack: () => {
-          const globe = globeRef.current;
-          if (globe?.pointOfView) {
-            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
-          }
-          if (globe?.controls) {
-            const controls = globe.controls();
-            controls.enableZoom = false;
-            controls.enablePan = false;
-            controls.enableRotate = false;
-          }
         },
 
         onLeave: () => {
