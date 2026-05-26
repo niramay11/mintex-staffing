@@ -16,7 +16,7 @@ export default function AdminInsightsPage() {
   const [savedPassword, setSavedPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [activeTab, setActiveTab] = useState<"media" | "impact" | "history">("media");
+  const [activeTab, setActiveTab] = useState<"media" | "impact" | "history" | "messages">("media");
   const [loading, setLoading] = useState(true);
 
   // Restore session from localStorage on mount (browser only)
@@ -83,8 +83,8 @@ export default function AdminInsightsPage() {
               Logout
             </button>
           </div>
-          <div className="flex gap-1">
-            {(["media", "impact", "history"] as const).map((tab) => (
+          <div className="flex gap-1 flex-wrap">
+            {(["media", "impact", "history", "messages"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -94,7 +94,7 @@ export default function AdminInsightsPage() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                {tab === "media" ? "Insights Media" : tab === "impact" ? "Our Impact Stats" : "History Images"}
+                {tab === "media" ? "Insights Media" : tab === "impact" ? "Our Impact Stats" : tab === "history" ? "History Images" : "Messages"}
               </button>
             ))}
           </div>
@@ -105,6 +105,7 @@ export default function AdminInsightsPage() {
         {activeTab === "media" && <MediaTab password={activePassword} />}
         {activeTab === "impact" && <ImpactTab password={activePassword} />}
         {activeTab === "history" && <HistoryImagesTab password={activePassword} />}
+        {activeTab === "messages" && <MessagesTab password={activePassword} />}
       </div>
     </div>
   );
@@ -660,6 +661,155 @@ function HistoryImagesTab({ password }: { password: string }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Messages tab ────────────────────────────────────────────────────────────
+type ContactMessage = {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+};
+
+function MessagesTab({ password }: { password: string }) {
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const fetchMessages = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/messages", {
+        headers: { "x-admin-password": password },
+      });
+      if (!res.ok) { setError("Failed to load messages."); setLoading(false); return; }
+      setMessages(await res.json());
+      setError("");
+    } catch {
+      setError("Network error — could not load messages.");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchMessages(); }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this message permanently?")) return;
+    await fetch("/api/messages", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, password }),
+    });
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const toggleRead = async (msg: ContactMessage) => {
+    await fetch("/api/messages", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: msg.id, read: !msg.read, password }),
+    });
+    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, read: !m.read } : m));
+  };
+
+  const unreadCount = messages.filter((m) => !m.read).length;
+
+  if (loading) return <p className="text-gray-400">Loading messages...</p>;
+  if (error) return <p className="text-red-400">{error}</p>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-semibold text-white">Contact Messages</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            {messages.length} total{unreadCount > 0 && <span className="ml-2 px-2 py-0.5 rounded-full bg-cyan-600 text-white text-xs font-semibold">{unreadCount} unread</span>}
+          </p>
+        </div>
+        <button onClick={fetchMessages} className="text-sm text-gray-400 hover:text-white transition-colors">
+          Refresh
+        </button>
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-10 text-center text-gray-500">
+          No messages yet. Messages submitted via the contact form will appear here.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`bg-gray-900 rounded-xl border transition-colors ${
+                msg.read ? "border-gray-800" : "border-cyan-800"
+              }`}
+            >
+              {/* Header row */}
+              <div className="flex items-start gap-4 p-5">
+                {/* Unread dot */}
+                <div className="mt-1.5 shrink-0">
+                  {!msg.read && <span className="block w-2 h-2 rounded-full bg-cyan-400" />}
+                  {msg.read && <span className="block w-2 h-2 rounded-full bg-gray-700" />}
+                </div>
+
+                {/* User info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="font-semibold text-white">{msg.name}</span>
+                    <a href={`mailto:${msg.email}`} className="text-cyan-400 text-sm hover:underline truncate">
+                      {msg.email}
+                    </a>
+                    <span className="text-xs text-gray-500 ml-auto shrink-0">
+                      {new Date(msg.created_at).toLocaleString("en-AU", {
+                        day: "2-digit", month: "short", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Message preview / expanded */}
+                  <p
+                    className={`mt-2 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed ${
+                      expanded === msg.id ? "" : "line-clamp-2"
+                    }`}
+                  >
+                    {msg.message}
+                  </p>
+                  {msg.message.length > 120 && (
+                    <button
+                      onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 mt-1 transition-colors"
+                    >
+                      {expanded === msg.id ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => toggleRead(msg)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  >
+                    {msg.read ? "Mark Unread" : "Mark Read"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(msg.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-red-900/40 hover:bg-red-600 text-red-400 hover:text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

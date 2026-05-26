@@ -136,13 +136,22 @@ const ContactClient = () => {
                             <button
                                 type="submit"
                                 disabled={status === "loading" || status === "success"}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-white transition-all cursor-pointer border border-white/10 mt-4 uppercase tracking-widest ${status === "loading" ? "opacity-70 cursor-wait" :
-                                    status === "success" ? "bg-green-600 border-green-500 cursor-default" :
+                                className={`w-full py-4 px-6 rounded-xl font-bold text-white transition-all cursor-pointer mt-4 uppercase tracking-widest ${status === "loading" ? "opacity-70 cursor-wait" :
+                                    status === "success" ? "cursor-default" :
                                         "hover:scale-[1.01] active:scale-[0.98]"
                                     }`}
-                                style={status === "success" ? {} : {
-                                    background: 'linear-gradient(180deg, #112229 0%, #000000 100%)',
-                                    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.5), inset 0px 1px 0px rgba(255,255,255,0.05)'
+                                style={status === "success" ? {
+                                    background: 'rgba(22, 163, 74, 0.15)',
+                                    backdropFilter: 'blur(20px)',
+                                    WebkitBackdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(74, 222, 128, 0.4)',
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 20px rgba(74,222,128,0.25)'
+                                } : {
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    backdropFilter: 'blur(20px)',
+                                    WebkitBackdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(123,209,232,0.2)'
                                 }}
                             >
                                 {status === "loading" ? "Sending..." : status === "success" ? "Message Sent!" : "Send Message"}

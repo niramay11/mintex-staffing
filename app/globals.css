@@ -184,19 +184,32 @@ body {
 }
 
 .cta-button {
-  background: linear-gradient(180deg, rgba(31, 31, 46, 0.72) 0%, rgba(0, 0, 0, 0.81) 100%);
-  border: 2px solid;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0px 0px 20px 0px #FFFFFF80 inset;
-
-  box-shadow: 0px 10px 20px 0px #7BD1E899;
+  box-shadow:
+    0px 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0px 1px 0px rgba(255, 255, 255, 0.12),
+    0px 0px 20px rgba(123, 209, 232, 0.2);
   font-size: 18px;
   line-height: 28.8px;
   letter-spacing: 0%;
   text-align: center;
   text-transform: uppercase;
+  transition: all 0.25s ease;
+}
 
+.cta-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(123, 209, 232, 0.45);
+  box-shadow:
+    0px 8px 40px rgba(0, 0, 0, 0.5),
+    inset 0px 1px 0px rgba(255, 255, 255, 0.18),
+    0px 0px 32px rgba(123, 209, 232, 0.38);
+  transform: scale(1.01);
 }
 
 .contact-bg {

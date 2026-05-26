@@ -241,7 +241,7 @@ const HowWeHelp = () => {
                         <motion.button
                             whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(74,222,128,0.4)" }}
                             whileTap={{ scale: 0.95 }}
-                            className="px-10 py-3 bg-black text-white font-bold border border-green-500/30 rounded-md shadow-[0_0_20px_rgba(74,222,128,0.1)] transition-all uppercase tracking-widest text-sm cta-button"
+                            className="px-10 py-3 text-white font-bold rounded-md transition-all uppercase tracking-widest text-sm cta-button"
                         >
                             LET&apos;S GET STARTED
                         </motion.button>
