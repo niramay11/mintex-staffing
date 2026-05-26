@@ -1,14 +1,19 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 
-interface LabelInfo { x: number; y: number; angle: number }
+interface LabelInfo { x: number; y: number }
+interface Props {
+  onPinReady?: (x: number, y: number) => void;
+  onPinClick?: () => void;
+}
 
-export default function StyledMapBackground() {
+export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
   const wrapRef        = useRef<HTMLDivElement>(null);
   const mapRef         = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const [isClient,  setIsClient]  = useState(false);
-  const [oakLabel,  setOakLabel]  = useState<LabelInfo | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [pinPos,   setPinPos]   = useState<LabelInfo | null>(null);
+  const [labelPos, setLabelPos] = useState<LabelInfo | null>(null);
 
   useEffect(() => { setIsClient(true); }, []);
 
@@ -40,7 +45,17 @@ export default function StyledMapBackground() {
       if (!document.getElementById("road-glow-anim")) {
         const s = document.createElement("style");
         s.id = "road-glow-anim";
-        s.textContent = `@keyframes roadDashFlow { to { stroke-dashoffset: -24; } }`;
+        s.textContent = `
+          @keyframes roadDashFlow { to { stroke-dashoffset: -24; } }
+          @keyframes floatPin {
+            0%, 100% { transform: translate(-50%, -91.7%) translateY(0px); }
+            50%       { transform: translate(-50%, -91.7%) translateY(-8px); }
+          }
+          @keyframes pinGlow {
+            0%, 100% { opacity: 0.6; transform: translate(-50%,-50%) scale(1); }
+            50%       { opacity: 0;   transform: translate(-50%,-50%) scale(2.5); }
+          }
+        `;
         document.head.appendChild(s);
       }
 
@@ -67,7 +82,6 @@ export default function StyledMapBackground() {
         let coords = rawCoords;
         if (dist(coords[0], pinLocation) < dist(coords[coords.length - 1], pinLocation))
           coords = [...coords].reverse();
-
         const dur = 800;
         const halo = L.default.polyline(coords, { color: "#93C5FD", weight: 18, opacity: 0.18, lineCap: "round", lineJoin: "round" }).addTo(map);
         animateDraw(halo, dur, delay);
@@ -77,7 +91,6 @@ export default function StyledMapBackground() {
         setTimeout(() => {
           const el = dash.getElement() as SVGPathElement | null;
           if (!el) return;
-          el.style.willChange = "opacity";
           el.style.opacity   = "0.55";
           el.style.animation = "roadDashFlow 0.6s linear infinite";
         }, delay + dur + 80);
@@ -86,51 +99,31 @@ export default function StyledMapBackground() {
       map.whenReady(() => {
         if (!mapInstanceRef.current) return;
 
-        // Oak Tree Rd runs nearly E-W through the pin.
-        // Use two points straddling the pin to get the exact road angle.
-        const west: [number, number] = [40.57690, -74.38650];
-        const east: [number, number] = [40.57682, -74.38220];
-        const px1 = map.latLngToContainerPoint(L.default.latLng(west[0], west[1]));
-        const px2 = map.latLngToContainerPoint(L.default.latLng(east[0], east[1]));
-        let angleDeg = Math.atan2(px2.y - px1.y, px2.x - px1.x) * (180 / Math.PI);
-        if (angleDeg >  90) angleDeg -= 180;
-        if (angleDeg < -90) angleDeg += 180;
+        const pt = map.latLngToContainerPoint(L.default.latLng(pinLocation[0], pinLocation[1]));
+        setPinPos({ x: pt.x, y: pt.y });
+        setLabelPos({ x: pt.x, y: pt.y + 44 });
+        onPinReady?.(pt.x, pt.y);
 
-        // Use a direct geographic coordinate on Oak Tree Rd east of the pin.
-        // +0.0004 lat = ~44m north (puts label on road centerline above pin anchor)
-        // +0.0018 lng = ~130m east (right of pin, on the visible road stretch)
-        const roadPt = map.latLngToContainerPoint(
-          L.default.latLng(pinLocation[0] + 0.0004, pinLocation[1] + 0.0018)
-        );
-        setOakLabel({ x: roadPt.x, y: roadPt.y, angle: angleDeg });
-
-        // ── Fetch + glow all roads ─────────────────────────────────────────────
-        const b    = map.getBounds();
-        const pad  = 0.001;
+        const b   = map.getBounds();
+        const pad = 0.001;
         const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
-        const q    = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
+        const q   = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
 
         fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`)
-          .then((r) => r.json())
+          .then(r => r.json())
           .then((data: any) => {
             if (!data.elements || !mapInstanceRef.current) return;
-            const ways: [number, number][][] = data.elements
+            data.elements
               .filter((el: any) => el.geometry?.length >= 2)
-              .map((el: any) =>
-                el.geometry.map((p: any) => [p.lat, p.lon] as [number, number])
-              );
-            // Draw glow on every road — does NOT touch oakLabel state
-            ways.forEach((coords, i) => drawRoadGlow(coords, i * 20));
+              .map((el: any) => el.geometry.map((p: any) => [p.lat, p.lon] as [number, number]))
+              .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 20));
           })
           .catch(() => {});
       });
     });
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
     };
   }, [isClient]);
 
@@ -138,38 +131,76 @@ export default function StyledMapBackground() {
 
   return (
     <div ref={wrapRef} style={{ position: "relative", width: "100%", height: "100%" }}>
-      {/* Leaflet map */}
       <div ref={mapRef} className="w-full h-full" style={{ isolation: "isolate" }} />
 
-      {/* Oak Tree Road — outside Leaflet's overflow:hidden, always visible */}
-      {oakLabel && (
-        <span
+      {/* Lucide-style MapPin rendered in same coordinate space as Leaflet — always exact */}
+      {pinPos && (
+        <div
+          onClick={onPinClick}
           style={{
-            position:        "absolute",
-            left:             oakLabel.x,
-            top:              oakLabel.y,
-            transform:       `translate(-50%, -50%) rotate(${oakLabel.angle}deg)`,
-            transformOrigin: "center center",
-            whiteSpace:      "nowrap",
-            fontFamily:      "'Inter','Helvetica Neue',Arial,sans-serif",
-            fontSize:        "12px",
-            fontWeight:      700,
-            letterSpacing:   "2px",
-            color:           "#ffffff",
-            textShadow:      [
-              "0 0 6px #93C5FD",
-              "0 0 16px #3B82F6",
-              "1px  1px 0 #000",
-              "-1px -1px 0 #000",
-              "1px -1px 0 #000",
-              "-1px  1px 0 #000",
-            ].join(", "),
-            pointerEvents:   "none",
-            userSelect:      "none",
-            zIndex:          20,
+            position:  "absolute",
+            left:      pinPos.x,
+            top:       pinPos.y,
+            transform: "translate(-50%, -91.7%)",
+            animation: "floatPin 4s ease-in-out infinite",
+            cursor:    "pointer",
+            zIndex:    25,
           }}
         >
-          OAK TREE RD
+          {/* Pulse glow ring at pin tip */}
+          <div style={{
+            position:     "absolute",
+            left:         "50%",
+            top:          "91.7%",
+            width:        "48px",
+            height:       "48px",
+            borderRadius: "50%",
+            background:   "rgba(255,90,90,0.45)",
+            animation:    "pinGlow 2s ease-out infinite",
+            pointerEvents:"none",
+          }} />
+          {/* The MapPin icon — identical stroke/fill to the original lucide MapPin */}
+          <svg
+            width="64" height="64"
+            viewBox="0 0 24 24"
+            fill="rgba(255,90,90,0.2)"
+            stroke="#ff5a5a"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ filter: "drop-shadow(0 0 20px rgba(255,90,90,0.9))" }}
+          >
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </div>
+      )}
+
+      {/* MINTEX STAFFING label */}
+      {labelPos && (
+        <span
+          style={{
+            position:      "absolute",
+            left:          labelPos.x,
+            top:           labelPos.y,
+            transform:     "translate(-50%, -50%)",
+            whiteSpace:    "nowrap",
+            fontFamily:    "'Inter','Helvetica Neue',Arial,sans-serif",
+            fontSize:      "18px",
+            fontWeight:    700,
+            letterSpacing: "2px",
+            color:         "#ffffff",
+            textShadow:    [
+              "0 0 6px #fd9393","0 0 16px #f63b3b",
+              "1px 1px 0 #000","-1px -1px 0 #000",
+              "1px -1px 0 #000","-1px 1px 0 #000",
+            ].join(", "),
+            pointerEvents: "none",
+            userSelect:    "none",
+            zIndex:        20,
+          }}
+        >
+          MINTEX STAFFING
         </span>
       )}
     </div>
