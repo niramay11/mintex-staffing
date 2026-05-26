@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
 import PeakButton from "../landing/PeakButton";
 import HeroCards from "../landing/HeroCards";
@@ -161,7 +160,14 @@ const Hero = () => {
 
               <Link
                 href="/candidates/jobs"
-                className="w-full sm:w-auto px-6 py-3 bg-[#9b51e0] text-white text-xs md:text-sm font-bold uppercase rounded-md  active:shadow-none active:translate-y-[4px] shadow-xl hover:bg-[#8a44c8] transition-all duration-100 text-center tracking-wider"
+                className="w-full sm:w-auto px-6 py-3 text-white text-xs md:text-sm font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(155, 81, 224, 0.18)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(155, 81, 224, 0.45)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)',
+                }}
               >
                 MAKE YOUR MOVE
               </Link>
@@ -185,7 +191,14 @@ const Hero = () => {
 
               <Link
                 href="/clients/portal"
-                className="w-full sm:w-auto px-6 py-3 bg-[#9b51e0] text-white text-xs md:text-sm font-bold uppercase rounded-md  active:shadow-none active:translate-y-[4px] shadow-xl hover:bg-[#8a44c8] transition-all duration-100 text-center tracking-wider"
+                className="w-full sm:w-auto px-6 py-3 text-white text-xs md:text-sm font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(155, 81, 224, 0.18)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(155, 81, 224, 0.45)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)',
+                }}
               >
                 HUNT TALENT
               </Link>
