@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -420,147 +420,137 @@ export default function NetworkSection() {
     return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(interval); };
   }, [isClient]);
 
-  // ── GSAP ScrollTrigger (pin only) + direct GSAP tween per step ──────────
+  // ── GSAP ScrollTrigger (pin only) + wheel-step animation ───────────────
   //
-  // ScrollTrigger pins the section in place (no scrub — globe is NOT driven
-  // by scroll position).  Each wheel event fires a GSAP tween that smoothly
-  // animates a progress value 0→1 and reads that value to set pointOfView.
-  // No window.scrollTo fighting — pure tween, pure smooth.
-  //
-  // Steps (each = 1 wheel event):
-  //   0 → 1 : globe rotates 1/3 toward USA
-  //   1 → 2 : globe rotates 2/3 toward USA
-  //   2 → 3 : globe fully faces USA center  (alt 2.5)
-  //   3 → 4 : zoom in to alt 2.0, labels appear  ← frozen
-  //   5th scroll : pin releases, page moves to next section
+  // • ScrollTrigger pins the section. Globe is animated by GSAP tween — no scrub.
+  // • Every wheel event while active is preventDefault'd (no inertia leaks out).
+  // • No "busy" flag — each scroll immediately starts a new tween (overwrite:true)
+  //   from the current animated position, so there is zero blocking/lag.
+  // • Exit uses st.start / st.end from the ScrollTrigger instance so it works
+  //   correctly whether the user entered from above OR from below.
   useEffect(() => {
     if (!containerRef.current || !stickyRef.current) return;
 
-    const animProgress    = { value: 0 };   // GSAP tweens this object
-    let   currentStep     = 0;
-    let   busy            = false;
-    let   sectionActive   = false;
-    let   sectionStartScrollY = 0;
-    const TOTAL_STEPS     = 4;
+    const animProgress  = { value: 0 };
+    let   currentStep   = 0;
+    let   sectionActive = false;
+    let   lastScrollMs  = 0;          // timestamp of last accepted scroll step
+    let   st: ScrollTrigger | null = null;
+    const TOTAL_STEPS   = 4;
+    const STEP_COOLDOWN = 480;        // ms — prevents inertia from racing through steps
 
-    // Directly animate the globe by tweening animProgress.value
+    const resetGlobe = () => {
+      const globe = globeRef.current;
+      if (!globe?.pointOfView) return;
+      globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+      correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
+    };
+
+    const lockGlobeControls = () => {
+      const globe = globeRef.current;
+      if (!globe?.controls) return;
+      const c = globe.controls();
+      c.enableZoom = false; c.enablePan = false;
+      c.enableRotate = false; c.enableDamping = false;
+      c.minDistance = 0; c.maxDistance = Infinity;
+    };
+
+    // Animate globe to a discrete step. overwrite:true means each new scroll
+    // immediately replaces the running tween — no blocking, no queue needed.
+    // ease:"power1.out" starts fast (no slow ramp-up) so movement is visible immediately.
     const animateToStep = (step: number) => {
-      busy = true;
       gsap.to(animProgress, {
         value: step / TOTAL_STEPS,
-        duration: 0.9,
-        ease: "power2.inOut",
+        duration: 0.55,
+        ease: "power1.out",
         overwrite: true,
         onUpdate: () => {
           const p = animProgress.value;
           scrollProgressRef.current = p;
           setScrollProgress(p);
+          lockGlobeControls();
 
           const globe = globeRef.current;
           if (!globe?.pointOfView) return;
+          if (p <= 0) { resetGlobe(); return; }
 
-          if (globe.controls) {
-            const c = globe.controls();
-            c.enableZoom = false; c.enablePan  = false;
-            c.enableRotate = false; c.enableDamping = false;
-            c.minDistance  = 0;    c.maxDistance   = Infinity;
-          }
-
-          if (p <= 0) {
-            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
-            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
-            return;
-          }
-          // 0 → 75 %: rotate;  75 → 100 %: zoom
+          // 0→75 %: rotate China→USA   75→100 %: zoom in
           const ph1 = Math.min(1, p / 0.75);
           const ph2 = Math.max(0, (p - 0.75) / 0.25);
-          const lat  = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
-          const lng  = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
-          const ez   = ph2 * ph2 * (3 - 2 * ph2);
+          const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
+          const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
+          const ez  = ph2 * ph2 * (3 - 2 * ph2);
           globe.pointOfView({ lat, lng, altitude: 2.5 - 0.5 * ez }, 0);
           correctCameraUp(globe, lat, lng);
         },
-        onComplete: () => { busy = false; },
       });
     };
 
     const ctx = gsap.context(() => {
-      ScrollTrigger.create({
+      st = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
-        end: "+=400%",          // 400 vh of pin space for the 5th scroll to exit
+        end: "+=400%",
         pin: stickyRef.current,
         pinSpacing: true,
         anticipatePin: 1,
         markers: false,
-        // NO scrub — globe driven by tween, not scroll position
 
         onEnter: () => {
-          sectionActive       = true;
-          currentStep         = 0;
-          sectionStartScrollY = window.scrollY;
-          animProgress.value  = 0;
-          scrollProgressRef.current = 0;
-          setScrollProgress(0);
-          const globe = globeRef.current;
-          if (globe?.pointOfView) {
-            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
-            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
-          }
+          sectionActive = true; currentStep = 0;
+          animProgress.value = 0;
+          scrollProgressRef.current = 0; setScrollProgress(0);
+          resetGlobe();
         },
-
         onLeave:     () => { sectionActive = false; },
         onEnterBack: () => {
-          sectionActive       = true;
-          currentStep         = 0;
-          sectionStartScrollY = window.scrollY;
-          animProgress.value  = 0;
-          scrollProgressRef.current = 0;
-          setScrollProgress(0);
+          sectionActive = true; currentStep = TOTAL_STEPS;
+          animProgress.value = 1;
+          scrollProgressRef.current = 1; setScrollProgress(1);
           gsap.killTweensOf(animProgress);
-          busy = false;
-          const globe = globeRef.current;
-          if (globe?.pointOfView) {
-            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
-            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
-          }
-          if (globe?.controls) {
-            const c = globe.controls();
-            c.enableZoom = false; c.enablePan = false; c.enableRotate = false;
-          }
+          lockGlobeControls();
         },
         onLeaveBack: () => {
-          sectionActive      = false;
-          currentStep        = 0;
+          sectionActive = false; currentStep = 0;
           animProgress.value = 0;
           gsap.killTweensOf(animProgress);
         },
       });
-
       setTimeout(() => ScrollTrigger.refresh(), 200);
     }, containerRef);
 
-    // ── Wheel handler ──────────────────────────────────────────────────────
+    // ── Wheel handler ────────────────────────────────────────────────────
     const onWheel = (e: WheelEvent) => {
       if (!sectionActive) return;
 
+      // Always block native scroll — exit is handled explicitly below.
+      e.preventDefault();
+
+      const now      = Date.now();
       const dir      = e.deltaY > 0 ? 1 : -1;
       const nextStep = currentStep + dir;
 
-      // Beyond bounds → release to normal page scroll
-      if (nextStep > TOTAL_STEPS || nextStep < 0) return;
-
-      e.preventDefault();
-      if (busy) return;
-
-      currentStep = nextStep;
-
-      // When reaching the final step, move scrollY to just before pin end
-      // so the very next (5th) scroll exits the pin naturally.
-      if (currentStep === TOTAL_STEPS) {
-        window.scrollTo(0, sectionStartScrollY + TOTAL_STEPS * window.innerHeight - 2);
+      if (nextStep > TOTAL_STEPS) {
+        // Require cooldown before exiting — prevents inertia from immediately
+        // pushing past step 4 before the user intends to leave.
+        if (now - lastScrollMs < STEP_COOLDOWN) return;
+        sectionActive = false;
+        gsap.killTweensOf(animProgress);
+        window.scrollTo(0, (st?.end ?? 0) + 50);
+        return;
+      }
+      if (nextStep < 0) {
+        if (now - lastScrollMs < STEP_COOLDOWN) return;
+        sectionActive = false;
+        gsap.killTweensOf(animProgress);
+        window.scrollTo(0, Math.max(0, (st?.start ?? 0) - 100));
+        return;
       }
 
+      // Throttle step advances — blocks trackpad inertia from racing through all 4 steps.
+      if (now - lastScrollMs < STEP_COOLDOWN) return;
+      lastScrollMs = now;
+      currentStep = nextStep;
       animateToStep(currentStep);
     };
 
@@ -576,18 +566,19 @@ export default function NetworkSection() {
 
   // ── Globe data ───────────────────────────────────────────────────────────
   const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.75) / 0.25));
+  const labelsVisible = labelRevealProgress > 0.05;
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
 
-  const globePoints = services.map((s, i) => ({
+  // Memoized so Globe never gets new prop references during animation re-renders,
+  // preventing expensive Three.js re-processing at 60fps.
+  const globePoints = useMemo(() => services.map((s, i) => ({
     lat: s.lat, lng: s.lng, label: s.label,
     size:  hover === i ? pointSizeHover : pointSize,
     color: hover === i ? "#ffffff" : "rgba(0,230,255,0.9)",
-  }));
+  })), [hover, pointSize, pointSizeHover]);
 
-  // Fully solid arcs — dashGap=0 eliminates all flickering from z-fighting at arc endpoints.
-  // The color gradient and arc altitude provide visual interest without any animated gap.
-  const satelliteArcs = [
+  const satelliteArcs = useMemo(() => [
     ...services.map((s) => ({
       startLat: HUB.lat, startLng: HUB.lng, endLat: s.lat, endLng: s.lng,
       color: ["rgba(0,230,255,0.2)", "rgba(0,230,255,0.75)"],
@@ -598,12 +589,13 @@ export default function NetworkSection() {
     { startLat: services[6].lat, startLng: services[6].lng, endLat: services[4].lat,  endLng: services[4].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
     { startLat: services[7].lat, startLng: services[7].lng, endLat: services[3].lat,  endLng: services[3].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
     { startLat: services[8].lat, startLng: services[8].lng, endLat: services[10].lat, endLng: services[10].lng, color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
-  ];
+  ], []);
 
-  const ringsData  = services.map((s) => ({ lat: s.lat, lng: s.lng }));
-  const labelsData = labelRevealProgress > 0.05
+  const ringsData  = useMemo(() => services.map((s) => ({ lat: s.lat, lng: s.lng })), []);
+  const labelsData = useMemo(() => labelsVisible
     ? []
-    : services.map((s) => ({ lat: s.lat, lng: s.lng, text: s.label, city: s.city }));
+    : services.map((s) => ({ lat: s.lat, lng: s.lng, text: s.label, city: s.city })),
+  [labelsVisible]);
 
   const handleGlobeClick = () => router.push("/served-sectors");
 
