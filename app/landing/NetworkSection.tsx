@@ -436,7 +436,7 @@ export default function NetworkSection() {
     let   sectionActive = false;
     let   lastScrollMs  = 0;          // timestamp of last accepted scroll step
     let   st: ScrollTrigger | null = null;
-    const TOTAL_STEPS   = 4;
+    const TOTAL_STEPS   = 2;
     const STEP_COOLDOWN = 480;        // ms — prevents inertia from racing through steps
 
     const resetGlobe = () => {
@@ -474,9 +474,9 @@ export default function NetworkSection() {
           if (!globe?.pointOfView) return;
           if (p <= 0) { resetGlobe(); return; }
 
-          // 0→75 %: rotate China→USA   75→100 %: zoom in
-          const ph1 = Math.min(1, p / 0.75);
-          const ph2 = Math.max(0, (p - 0.75) / 0.25);
+          // 0→50 %: rotate China→USA (step 1)   50→100 %: zoom in + labels (step 2)
+          const ph1 = Math.min(1, p / 0.5);
+          const ph2 = Math.max(0, (p - 0.5) / 0.5);
           const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
           const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
           const ez  = ph2 * ph2 * (3 - 2 * ph2);
@@ -490,7 +490,7 @@ export default function NetworkSection() {
       st = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
-        end: "+=400%",
+        end: "+=200%",
         pin: stickyRef.current,
         pinSpacing: true,
         anticipatePin: 1,
@@ -565,7 +565,7 @@ export default function NetworkSection() {
   }, [isMobile]);
 
   // ── Globe data ───────────────────────────────────────────────────────────
-  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.75) / 0.25));
+  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.5) / 0.5));
   const labelsVisible = labelRevealProgress > 0.05;
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
