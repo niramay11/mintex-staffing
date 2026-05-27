@@ -50,11 +50,10 @@ type ComputedLabel = {
   index: number;
   dotX: number;
   dotY: number;
-  anchorX: number;     // animated label position (globe-facing edge of pill)
-  anchorY: number;     // animated label Y centre
-  finalAnchorX: number; // settled column X (for line endpoint)
-  finalAnchorY: number; // settled column Y (for line endpoint)
-  side: "left" | "right";
+  anchorX: number;     // smoothed label center X
+  anchorY: number;     // smoothed label center Y
+  finalAnchorX: number; // target label center X (for line endpoint)
+  finalAnchorY: number; // target label center Y (for line endpoint)
   showLine: boolean;
   opacity: number;
 };
@@ -225,32 +224,24 @@ export default function NetworkSection() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ── RAF: project dots → compute label layout just outside globe edge ─────
-  //
-  // Labels only appear in the LAST 7 % of the scroll (0.93→1.0).
-  // At that point the globe is 88–100 % through its zoom, essentially
-  // stationary. Labels go straight to their final column positions —
-  // no "fly from dot" animation — so there is zero jitter from a moving camera.
-  // Opacity is the only animated property (0→1 as scroll 0.93→1.0).
+  // ── RAF: radial labels hugging the globe surface, appear at scroll 80%+ ──
+  // Each label is placed in the direction of its dot from the globe center,
+  // at screenRadius + LABEL_OFFSET px from center. Lines are short and direct.
+  const smoothedAnchors = useRef<{[idx: number]: {x: number; y: number}}>({});
+
   useEffect(() => {
     let rafId: number;
-    let lastClearProgress = -1;
 
     const tick = () => {
       const scroll = scrollProgressRef.current;
-      // 0→1 over the last 7 % of scroll
-      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.93) / 0.07));
+      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.80) / 0.20));
 
-      // Clear labels when scrolling back past threshold
       if (revealProgress < 0.01) {
-        if (lastClearProgress !== 0) {
-          setLabelRenders([]);
-          lastClearProgress = 0;
-        }
+        setLabelRenders([]);
+        smoothedAnchors.current = {};
         rafId = requestAnimationFrame(tick);
         return;
       }
-      lastClearProgress = revealProgress;
 
       const globe     = globeRef.current;
       const container = stickyRef.current;
@@ -275,14 +266,27 @@ export default function NetworkSection() {
       const screenCX = (cv.x * 0.5 + 0.5) * rW + offX;
       const screenCY = (-cv.y * 0.5 + 0.5) * rH + offY;
 
-      // Apparent globe radius on screen (three-globe default R = 100 world units)
+      // Apparent globe radius from the live camera
       const camDist  = camera.position.length();
       const fovRad   = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180;
       const sinAngle = Math.min(1, 100 / camDist);
       const screenRadius = (rH / 2) / Math.tan(fovRad / 2) * sinAngle;
 
-      // Project all dots to screen space
-      type RawDot = { index: number; dotX: number; dotY: number; visible: boolean; side: "left" | "right" };
+      const LABEL_OFFSET = isMobile ? 36 : 58; // px beyond globe edge
+      const MIN_SEP      = isMobile ? 32 : 65; // min px between label centers
+      const MAX_DEV      = isMobile ? 65 : 130; // max px a label can drift from its radial position
+      const LERP         = 0.14;
+      const STAGGER      = 0.055;
+
+      // Safe screen bounds — account for half pill width so pills never bleed off-screen
+      const PILL_HALF  = isMobile ? 72 : 108; // half of max pill width
+      const topSafe    = 110;                  // well below navbar (pill center ≥ 110px from top)
+      const bottomSafe = containerRect.height - 30;
+      const leftSafe   = PILL_HALF;
+      const rightSafe  = containerRect.width - PILL_HALF;
+
+      // Project every service dot
+      type RawDot = { index: number; dotX: number; dotY: number; visible: boolean };
       const rawDots: RawDot[] = [];
 
       services.forEach((s, i) => {
@@ -292,53 +296,88 @@ export default function NetworkSection() {
         v.project(camera);
         const dotX = (v.x * 0.5 + 0.5) * rW + offX;
         const dotY = (-v.y * 0.5 + 0.5) * rH + offY;
-        rawDots.push({
-          index: i, dotX, dotY,
-          visible: v.z <= 1.1,
-          side: dotX <= screenCX ? "left" : "right",
-        });
+        rawDots.push({ index: i, dotX, dotY, visible: v.z <= 1.12 });
       });
 
-      // Columns sit just outside the globe edge
-      const GAP       = isMobile ? 10 : 20;
-      const leftColX  = screenCX - screenRadius - GAP;  // right edge of left pills
-      const rightColX = screenCX + screenRadius + GAP;  // left edge of right pills
+      // Compute radial label positions: each label radiates from globe center
+      // in the direction of its dot, placed just outside the globe edge
+      type RadialEntry = RawDot & { angle: number; rawX: number; rawY: number };
+      const entries: RadialEntry[] = rawDots.map(d => {
+        const dx  = d.dotX - screenCX;
+        const dy  = d.dotY - screenCY;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx  = dx / len;
+        const ny  = dy / len;
+        return {
+          ...d,
+          angle: Math.atan2(dy, dx),
+          rawX: screenCX + nx * (screenRadius + LABEL_OFFSET),
+          rawY: screenCY + ny * (screenRadius + LABEL_OFFSET),
+        };
+      });
 
-      // Spread pills evenly top-to-bottom with a margin
-      const vMargin = containerRect.height * 0.07;
-      const vSpread = containerRect.height - vMargin * 2;
+      // Sort by angle for a consistent push-apart order
+      entries.sort((a, b) => a.angle - b.angle);
 
-      const leftGroup  = rawDots.filter(d => d.side === "left" ).sort((a, b) => a.dotY - b.dotY);
-      const rightGroup = rawDots.filter(d => d.side === "right").sort((a, b) => a.dotY - b.dotY);
+      // Push-apart: spread labels so no two are closer than MIN_SEP px
+      const pos = entries.map(e => ({ x: e.rawX, y: e.rawY }));
+      for (let pass = 0; pass < 14; pass++) {
+        for (let i = 0; i < pos.length; i++) {
+          for (let j = i + 1; j < pos.length; j++) {
+            const dx   = pos[j].x - pos[i].x;
+            const dy   = pos[j].y - pos[i].y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+            if (dist < MIN_SEP) {
+              const push = (MIN_SEP - dist) / 2;
+              const px = (dx / dist) * push;
+              const py = (dy / dist) * push;
+              pos[i].x -= px; pos[i].y -= py;
+              pos[j].x += px; pos[j].y += py;
+            }
+          }
+        }
+        // Limit drift: each label stays within MAX_DEV px of its natural radial position
+        for (let i = 0; i < pos.length; i++) {
+          const ddx  = pos[i].x - entries[i].rawX;
+          const ddy  = pos[i].y - entries[i].rawY;
+          const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 0.001;
+          if (dlen > MAX_DEV) {
+            pos[i].x = entries[i].rawX + (ddx / dlen) * MAX_DEV;
+            pos[i].y = entries[i].rawY + (ddy / dlen) * MAX_DEV;
+          }
+        }
+        // Clamp inside safe bounds (pills fully visible)
+        for (let i = 0; i < pos.length; i++) {
+          pos[i].x = Math.max(leftSafe, Math.min(rightSafe, pos[i].x));
+          pos[i].y = Math.max(topSafe,  Math.min(bottomSafe, pos[i].y));
+        }
+      }
 
-      // Stagger: each pill fades in slightly after the previous one
-      const STAGGER = 0.06; // fraction of revealProgress per label
+      // Build renders with lerp smoothing and per-label stagger
+      const newRenders: ComputedLabel[] = entries.map((e, idx) => {
+        const targetX = pos[idx].x;
+        const targetY = pos[idx].y;
+        const prev    = smoothedAnchors.current[e.index] ?? { x: targetX, y: targetY };
+        const smX = prev.x + (targetX - prev.x) * LERP;
+        const smY = prev.y + (targetY - prev.y) * LERP;
+        smoothedAnchors.current[e.index] = { x: smX, y: smY };
 
-      const distribute = (group: RawDot[], colX: number, side: "left" | "right"): ComputedLabel[] =>
-        group.map((d, idx) => {
-          const n = group.length;
-          const colY = n <= 1 ? screenCY : vMargin + (idx / (n - 1)) * vSpread;
-          // Staggered per-label opacity
-          const itemProgress = Math.max(0, Math.min(1, (revealProgress - idx * STAGGER) / (1 - (n - 1) * STAGGER)));
-          return {
-            index: d.index,
-            dotX: d.dotX,
-            dotY: d.dotY,
-            anchorX: colX,   // labels are placed directly at final column — no fly animation
-            anchorY: colY,
-            finalAnchorX: colX,
-            finalAnchorY: colY,
-            side,
-            showLine: d.visible,
-            opacity: itemProgress,
-          };
-        });
+        const maxOff = (entries.length - 1) * STAGGER;
+        const itemProgress = Math.max(0, Math.min(1,
+          (revealProgress - idx * STAGGER) / Math.max(0.01, 1 - maxOff)
+        ));
 
-      setLabelRenders([
-        ...distribute(leftGroup, leftColX, "left"),
-        ...distribute(rightGroup, rightColX, "right"),
-      ]);
+        return {
+          index: e.index,
+          dotX: e.dotX, dotY: e.dotY,
+          anchorX: smX,  anchorY: smY,
+          finalAnchorX: targetX, finalAnchorY: targetY,
+          showLine: e.visible,
+          opacity: itemProgress,
+        };
+      });
 
+      setLabelRenders(newRenders);
       rafId = requestAnimationFrame(tick);
     };
 
@@ -415,7 +454,7 @@ export default function NetworkSection() {
           setScrollProgress(clampedProgress);
 
           const initialAltitude = 2.5;
-          const finalAltitude   = 1.2;
+          const finalAltitude   = 1.6;
 
           if (clampedProgress === 0) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: initialAltitude }, 0);
@@ -457,7 +496,7 @@ export default function NetworkSection() {
         onLeave: () => {
           const globe = globeRef.current;
           if (globe?.pointOfView) {
-            globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.2 }, 0);
+            globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.6 }, 0);
             correctCameraUp(globe, USA_CENTER.lat, USA_CENTER.lng);
           }
         },
@@ -470,7 +509,7 @@ export default function NetworkSection() {
   }, [isMobile]);
 
   // ── Globe data ───────────────────────────────────────────────────────────
-  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.93) / 0.07));
+  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.80) / 0.20));
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
 
@@ -480,16 +519,19 @@ export default function NetworkSection() {
     color: hover === i ? "#ffffff" : "rgba(0,230,255,0.9)",
   }));
 
+  // Hub→city: 92% dash / 8% gap — line always visible, tiny gap travels along (no "breaking" look).
+  // City→city: 96% dash / 4% gap — nearly solid, very subtle shimmer.
   const satelliteArcs = [
     ...services.map((s) => ({
       startLat: HUB.lat, startLng: HUB.lng, endLat: s.lat, endLng: s.lng,
-      color: ["rgba(0,230,255,0.3)", "rgba(0,230,255,0.7)"],
+      color: ["rgba(0,230,255,0.3)", "rgba(0,230,255,0.85)"],
+      dashLen: 0.92, dashGap: 0.08, dashAnimTime: 4000,
     })),
-    { startLat: services[0].lat, startLng: services[0].lng, endLat: services[1].lat,  endLng: services[1].lng,  color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
-    { startLat: services[2].lat, startLng: services[2].lng, endLat: services[5].lat,  endLng: services[5].lng,  color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
-    { startLat: services[6].lat, startLng: services[6].lng, endLat: services[4].lat,  endLng: services[4].lng,  color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
-    { startLat: services[7].lat, startLng: services[7].lng, endLat: services[3].lat,  endLng: services[3].lng,  color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
-    { startLat: services[8].lat, startLng: services[8].lng, endLat: services[10].lat, endLng: services[10].lng, color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
+    { startLat: services[0].lat, startLng: services[0].lng, endLat: services[1].lat,  endLng: services[1].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
+    { startLat: services[2].lat, startLng: services[2].lng, endLat: services[5].lat,  endLng: services[5].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
+    { startLat: services[6].lat, startLng: services[6].lng, endLat: services[4].lat,  endLng: services[4].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
+    { startLat: services[7].lat, startLng: services[7].lng, endLat: services[3].lat,  endLng: services[3].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
+    { startLat: services[8].lat, startLng: services[8].lng, endLat: services[10].lat, endLng: services[10].lng, color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
   ];
 
   const ringsData  = services.map((s) => ({ lat: s.lat, lng: s.lng }));
@@ -542,12 +584,12 @@ export default function NetworkSection() {
                 arcsData={satelliteArcs}
                 arcColor="color"
                 arcStroke={null}
-                arcAltitude={0.15}
-                arcAltitudeAutoScale={0.3}
-                arcDashLength={0.6}
-                arcDashGap={0.3}
-                arcDashAnimateTime={3000}
-                arcCurveResolution={isMobile ? 64 : 128}
+                arcAltitude={0.3}
+                arcAltitudeAutoScale={0.4}
+                arcDashLength={(d: any) => d.dashLen ?? 0.92}
+                arcDashGap={(d: any) => d.dashGap ?? 0.08}
+                arcDashAnimateTime={(d: any) => d.dashAnimTime ?? 4000}
+                arcCurveResolution={isMobile ? 128 : 256}
 
                 ringsData={ringsData}
                 ringColor={() => (t: number) => `rgba(0,230,255,${1 - t})`}
@@ -617,13 +659,9 @@ export default function NetworkSection() {
           )}
         </svg>
 
-        {/* Glassmorphism labels — placed at final column positions, fade+scale in */}
+        {/* Glassmorphism labels — radially placed around globe, fade+scale in */}
         {labelRenders.map((lr) => {
-          const isLeft  = lr.side === "left";
-          // scale from 0.88 → 1 as opacity 0 → 1, gives a subtle pop feel
-          const scale   = 0.88 + 0.12 * lr.opacity;
-          const baseTranslate = isLeft ? "translate(-100%, -50%)" : "translate(0%, -50%)";
-
+          const scale = 0.85 + 0.15 * lr.opacity;
           return (
             <div
               key={lr.index}
@@ -632,44 +670,43 @@ export default function NetworkSection() {
                 position: "absolute",
                 left: lr.anchorX,
                 top:  lr.anchorY,
-                // combine the column-edge alignment with the scale pop
-                transform: `${baseTranslate} scale(${scale})`,
-                transformOrigin: isLeft ? "right center" : "left center",
+                transform: `translate(-50%, -50%) scale(${scale})`,
+                transformOrigin: "center center",
                 opacity: lr.opacity,
                 zIndex: 25,
-                pointerEvents: lr.opacity > 0.3 ? "auto" : "none",
+                pointerEvents: lr.opacity > 0.25 ? "auto" : "none",
                 cursor: "pointer",
-                maxWidth: isMobile ? "36vw" : "220px",
+                maxWidth: isMobile ? "38vw" : "200px",
                 whiteSpace: "nowrap",
               }}
             >
               <div
                 style={{
-                  background: "rgba(0, 12, 30, 0.68)",
+                  background: "rgba(0, 12, 30, 0.75)",
                   backdropFilter: "blur(16px) saturate(180%)",
                   WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                  border: "1px solid rgba(0, 230, 255, 0.35)",
+                  border: "1px solid rgba(0, 230, 255, 0.40)",
                   borderRadius: "24px",
-                  padding: isMobile ? "5px 11px" : "7px 16px",
+                  padding: isMobile ? "5px 10px" : "6px 14px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  boxShadow: "0 4px 24px rgba(0,230,255,0.10), inset 0 1px 0 rgba(255,255,255,0.08)",
+                  gap: "7px",
+                  boxShadow: "0 2px 16px rgba(0,230,255,0.12), inset 0 1px 0 rgba(255,255,255,0.08)",
                 }}
               >
                 <span
                   style={{
-                    width: "6px", height: "6px",
+                    width: "5px", height: "5px",
                     borderRadius: "50%",
                     background: "#00E6FF",
-                    boxShadow: "0 0 8px rgba(0,230,255,1)",
+                    boxShadow: "0 0 6px rgba(0,230,255,1)",
                     flexShrink: 0,
                   }}
                 />
                 <span
                   style={{
                     color: "#cdf3ff",
-                    fontSize: isMobile ? "10px" : "12px",
+                    fontSize: isMobile ? "9px" : "11px",
                     fontWeight: 600,
                     letterSpacing: "0.02em",
                     whiteSpace: "nowrap",
