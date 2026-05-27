@@ -234,7 +234,7 @@ export default function NetworkSection() {
 
     const tick = () => {
       const scroll = scrollProgressRef.current;
-      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.80) / 0.20));
+      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.75) / 0.25));
 
       if (revealProgress < 0.01) {
         setLabelRenders([]);
@@ -420,60 +420,88 @@ export default function NetworkSection() {
     return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(interval); };
   }, [isClient]);
 
-  // ── GSAP ScrollTrigger ───────────────────────────────────────────────────
+  // ── GSAP ScrollTrigger (pin only) + direct GSAP tween per step ──────────
+  //
+  // ScrollTrigger pins the section in place (no scrub — globe is NOT driven
+  // by scroll position).  Each wheel event fires a GSAP tween that smoothly
+  // animates a progress value 0→1 and reads that value to set pointOfView.
+  // No window.scrollTo fighting — pure tween, pure smooth.
+  //
+  // Steps (each = 1 wheel event):
+  //   0 → 1 : globe rotates 1/3 toward USA
+  //   1 → 2 : globe rotates 2/3 toward USA
+  //   2 → 3 : globe fully faces USA center  (alt 2.5)
+  //   3 → 4 : zoom in to alt 2.0, labels appear  ← frozen
+  //   5th scroll : pin releases, page moves to next section
   useEffect(() => {
     if (!containerRef.current || !stickyRef.current) return;
 
-    const scrollDistance = isMobile ? "+=100%" : "+=150%";
+    const animProgress    = { value: 0 };   // GSAP tweens this object
+    let   currentStep     = 0;
+    let   busy            = false;
+    let   sectionActive   = false;
+    let   sectionStartScrollY = 0;
+    const TOTAL_STEPS     = 4;
+
+    // Directly animate the globe by tweening animProgress.value
+    const animateToStep = (step: number) => {
+      busy = true;
+      gsap.to(animProgress, {
+        value: step / TOTAL_STEPS,
+        duration: 0.9,
+        ease: "power2.inOut",
+        overwrite: true,
+        onUpdate: () => {
+          const p = animProgress.value;
+          scrollProgressRef.current = p;
+          setScrollProgress(p);
+
+          const globe = globeRef.current;
+          if (!globe?.pointOfView) return;
+
+          if (globe.controls) {
+            const c = globe.controls();
+            c.enableZoom = false; c.enablePan  = false;
+            c.enableRotate = false; c.enableDamping = false;
+            c.minDistance  = 0;    c.maxDistance   = Infinity;
+          }
+
+          if (p <= 0) {
+            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
+            return;
+          }
+          // 0 → 75 %: rotate;  75 → 100 %: zoom
+          const ph1 = Math.min(1, p / 0.75);
+          const ph2 = Math.max(0, (p - 0.75) / 0.25);
+          const lat  = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
+          const lng  = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
+          const ez   = ph2 * ph2 * (3 - 2 * ph2);
+          globe.pointOfView({ lat, lng, altitude: 2.5 - 0.5 * ez }, 0);
+          correctCameraUp(globe, lat, lng);
+        },
+        onComplete: () => { busy = false; },
+      });
+    };
 
     const ctx = gsap.context(() => {
       ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
-        end: scrollDistance,
+        end: "+=400%",          // 400 vh of pin space for the 5th scroll to exit
         pin: stickyRef.current,
         pinSpacing: true,
-        scrub: 0.5,
         anticipatePin: 1,
         markers: false,
-
-        onUpdate: (self) => {
-          const progress = self.progress;
-          const globe = globeRef.current;
-          if (!globe || !globe.pointOfView) return;
-
-          if (globe.controls) {
-            const c = globe.controls();
-            c.enableZoom = false; c.enablePan = false;
-            c.enableRotate = false; c.enableDamping = false;
-            c.minDistance = 0; c.maxDistance = Infinity;
-          }
-
-          const clampedProgress = Math.max(0, Math.min(1, progress));
-          scrollProgressRef.current = clampedProgress;
-          setScrollProgress(clampedProgress);
-
-          const initialAltitude = 2.5;
-          const finalAltitude   = 1.6;
-
-          if (clampedProgress === 0) {
-            globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: initialAltitude }, 0);
-            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
-            return;
-          }
-
-          const phase1Progress = Math.min(1, clampedProgress / 0.4);
-          const phase2Progress = Math.max(0, (clampedProgress - 0.4) / 0.6);
-          const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * phase1Progress;
-          const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * phase1Progress;
-          const easedZoom = phase2Progress * phase2Progress * (3 - 2 * phase2Progress);
-          const altitude  = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
-
-          globe.pointOfView({ lat, lng, altitude: Math.max(finalAltitude, altitude) }, 0);
-          correctCameraUp(globe, lat, lng);
-        },
+        // NO scrub — globe driven by tween, not scroll position
 
         onEnter: () => {
+          sectionActive       = true;
+          currentStep         = 0;
+          sectionStartScrollY = window.scrollY;
+          animProgress.value  = 0;
+          scrollProgressRef.current = 0;
+          setScrollProgress(0);
           const globe = globeRef.current;
           if (globe?.pointOfView) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
@@ -481,7 +509,16 @@ export default function NetworkSection() {
           }
         },
 
+        onLeave:     () => { sectionActive = false; },
         onEnterBack: () => {
+          sectionActive       = true;
+          currentStep         = 0;
+          sectionStartScrollY = window.scrollY;
+          animProgress.value  = 0;
+          scrollProgressRef.current = 0;
+          setScrollProgress(0);
+          gsap.killTweensOf(animProgress);
+          busy = false;
           const globe = globeRef.current;
           if (globe?.pointOfView) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
@@ -492,24 +529,53 @@ export default function NetworkSection() {
             c.enableZoom = false; c.enablePan = false; c.enableRotate = false;
           }
         },
-
-        onLeave: () => {
-          const globe = globeRef.current;
-          if (globe?.pointOfView) {
-            globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.6 }, 0);
-            correctCameraUp(globe, USA_CENTER.lat, USA_CENTER.lng);
-          }
+        onLeaveBack: () => {
+          sectionActive      = false;
+          currentStep        = 0;
+          animProgress.value = 0;
+          gsap.killTweensOf(animProgress);
         },
       });
 
       setTimeout(() => ScrollTrigger.refresh(), 200);
     }, containerRef);
 
-    return () => ctx.revert();
+    // ── Wheel handler ──────────────────────────────────────────────────────
+    const onWheel = (e: WheelEvent) => {
+      if (!sectionActive) return;
+
+      const dir      = e.deltaY > 0 ? 1 : -1;
+      const nextStep = currentStep + dir;
+
+      // Beyond bounds → release to normal page scroll
+      if (nextStep > TOTAL_STEPS || nextStep < 0) return;
+
+      e.preventDefault();
+      if (busy) return;
+
+      currentStep = nextStep;
+
+      // When reaching the final step, move scrollY to just before pin end
+      // so the very next (5th) scroll exits the pin naturally.
+      if (currentStep === TOTAL_STEPS) {
+        window.scrollTo(0, sectionStartScrollY + TOTAL_STEPS * window.innerHeight - 2);
+      }
+
+      animateToStep(currentStep);
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      ctx.revert();
+      gsap.killTweensOf(animProgress);
+      window.removeEventListener("wheel", onWheel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
   // ── Globe data ───────────────────────────────────────────────────────────
-  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.80) / 0.20));
+  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.75) / 0.25));
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
 
@@ -519,19 +585,19 @@ export default function NetworkSection() {
     color: hover === i ? "#ffffff" : "rgba(0,230,255,0.9)",
   }));
 
-  // Hub→city: 92% dash / 8% gap — line always visible, tiny gap travels along (no "breaking" look).
-  // City→city: 96% dash / 4% gap — nearly solid, very subtle shimmer.
+  // Fully solid arcs — dashGap=0 eliminates all flickering from z-fighting at arc endpoints.
+  // The color gradient and arc altitude provide visual interest without any animated gap.
   const satelliteArcs = [
     ...services.map((s) => ({
       startLat: HUB.lat, startLng: HUB.lng, endLat: s.lat, endLng: s.lng,
-      color: ["rgba(0,230,255,0.3)", "rgba(0,230,255,0.85)"],
-      dashLen: 0.92, dashGap: 0.08, dashAnimTime: 4000,
+      color: ["rgba(0,230,255,0.2)", "rgba(0,230,255,0.75)"],
+      dashLen: 1, dashGap: 0, dashAnimTime: 0,
     })),
-    { startLat: services[0].lat, startLng: services[0].lng, endLat: services[1].lat,  endLng: services[1].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
-    { startLat: services[2].lat, startLng: services[2].lng, endLat: services[5].lat,  endLng: services[5].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
-    { startLat: services[6].lat, startLng: services[6].lng, endLat: services[4].lat,  endLng: services[4].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
-    { startLat: services[7].lat, startLng: services[7].lng, endLat: services[3].lat,  endLng: services[3].lng,  color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
-    { startLat: services[8].lat, startLng: services[8].lng, endLat: services[10].lat, endLng: services[10].lng, color: ["rgba(0,200,255,0.12)", "rgba(0,200,255,0.35)"], dashLen: 0.96, dashGap: 0.04, dashAnimTime: 9000 },
+    { startLat: services[0].lat, startLng: services[0].lng, endLat: services[1].lat,  endLng: services[1].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
+    { startLat: services[2].lat, startLng: services[2].lng, endLat: services[5].lat,  endLng: services[5].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
+    { startLat: services[6].lat, startLng: services[6].lng, endLat: services[4].lat,  endLng: services[4].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
+    { startLat: services[7].lat, startLng: services[7].lng, endLat: services[3].lat,  endLng: services[3].lng,  color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
+    { startLat: services[8].lat, startLng: services[8].lng, endLat: services[10].lat, endLng: services[10].lng, color: ["rgba(0,200,255,0.08)", "rgba(0,200,255,0.28)"], dashLen: 1, dashGap: 0, dashAnimTime: 0 },
   ];
 
   const ringsData  = services.map((s) => ({ lat: s.lat, lng: s.lng }));
@@ -586,9 +652,9 @@ export default function NetworkSection() {
                 arcStroke={null}
                 arcAltitude={0.3}
                 arcAltitudeAutoScale={0.4}
-                arcDashLength={(d: any) => d.dashLen ?? 0.92}
-                arcDashGap={(d: any) => d.dashGap ?? 0.08}
-                arcDashAnimateTime={(d: any) => d.dashAnimTime ?? 4000}
+                arcDashLength={(d: any) => d.dashLen ?? 1}
+                arcDashGap={(d: any) => d.dashGap ?? 0}
+                arcDashAnimateTime={(d: any) => d.dashAnimTime ?? 0}
                 arcCurveResolution={isMobile ? 128 : 256}
 
                 ringsData={ringsData}
