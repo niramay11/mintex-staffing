@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRouter } from "next/navigation";
+import * as THREE from "three";
 
 if (typeof window !== 'undefined') {
     gsap.registerPlugin(ScrollTrigger);
@@ -32,21 +33,50 @@ const CHINA_CENTER = { lat: 39.9042, lng: 116.4074 };
 const USA_CENTER = { lat: 39.8283, lng: -98.5795 };
 const MOBILE_BREAKPOINT = 768;
 
+const correctCameraUp = (globe: any, lat: number, lng: number) => {
+  const camera = globe?.camera?.();
+  if (!camera) return;
+  const latRad = lat * (Math.PI / 180);
+  const lngRad = lng * (Math.PI / 180);
+  camera.up.set(
+    -Math.sin(latRad) * Math.sin(lngRad),
+     Math.cos(latRad),
+    -Math.sin(latRad) * Math.cos(lngRad)
+  );
+  camera.lookAt(0, 0, 0);
+};
+
+type ComputedLabel = {
+  index: number;
+  dotX: number;
+  dotY: number;
+  anchorX: number;     // animated label position (globe-facing edge of pill)
+  anchorY: number;     // animated label Y centre
+  finalAnchorX: number; // settled column X (for line endpoint)
+  finalAnchorY: number; // settled column Y (for line endpoint)
+  side: "left" | "right";
+  showLine: boolean;
+  opacity: number;
+};
+
 export default function NetworkSection() {
-  const containerRef = useRef<HTMLElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const globeRef = useRef<any>(null);
+  const containerRef  = useRef<HTMLElement>(null);
+  const stickyRef     = useRef<HTMLDivElement>(null);
+  const globeRef      = useRef<any>(null);
   const starCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [isClient, setIsClient] = useState(false);
-  const [hover, setHover] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const scrollProgressRef = useRef(0);
+
+  const [isClient, setIsClient]       = useState(false);
+  const [hover, setHover]             = useState<number | null>(null);
+  const [isMobile, setIsMobile]       = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [labelRenders, setLabelRenders]     = useState<ComputedLabel[]>([]);
+
   const router = useRouter();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
-  // Star canvas animation
+  // ── Star canvas ──────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = starCanvasRef.current;
     const container = stickyRef.current;
@@ -61,7 +91,6 @@ export default function NetworkSection() {
     const MOUSE_DIST   = 190;
     const STAR_SPEED   = 0.5;
     const LINE_COLOR: [number, number, number] = [120, 190, 255];
-
     let W = 0, H = 0;
 
     const resize = () => {
@@ -157,7 +186,6 @@ export default function NetworkSection() {
       stars.forEach(s => s.draw());
       animId = requestAnimationFrame(animate);
     };
-
     animate();
 
     const getRelPos = (clientX: number, clientY: number) => {
@@ -167,62 +195,181 @@ export default function NetworkSection() {
     const onMouseMove  = (e: MouseEvent) => { const p = getRelPos(e.clientX, e.clientY); mouse.x = p.x; mouse.y = p.y; };
     const onMouseLeave = () => { mouse.x = -9999; mouse.y = -9999; };
     const onTouchMove  = (e: TouchEvent) => { const p = getRelPos(e.touches[0].clientX, e.touches[0].clientY); mouse.x = p.x; mouse.y = p.y; };
-    const onResize     = () => resize();
 
     container.addEventListener("mousemove",  onMouseMove);
     container.addEventListener("mouseleave", onMouseLeave);
     container.addEventListener("touchmove",  onTouchMove as EventListener, { passive: true });
-    window.addEventListener("resize",        onResize);
+    window.addEventListener("resize", resize);
 
     return () => {
       cancelAnimationFrame(animId);
       container.removeEventListener("mousemove",  onMouseMove);
       container.removeEventListener("mouseleave", onMouseLeave);
       container.removeEventListener("touchmove",  onTouchMove as EventListener);
-      window.removeEventListener("resize",        onResize);
+      window.removeEventListener("resize", resize);
     };
   }, []);
 
-  // Track mobile viewport
+  // ── Mobile breakpoint ────────────────────────────────────────────────────
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    const check = () => setIsMobile(typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Refresh ScrollTrigger on resize
+  // ── ScrollTrigger refresh ────────────────────────────────────────────────
   useEffect(() => {
     const onResize = () => ScrollTrigger.refresh();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Initialize globe camera and lock all user interaction
+  // ── RAF: project dots → compute label layout just outside globe edge ─────
+  //
+  // Labels only appear in the LAST 7 % of the scroll (0.93→1.0).
+  // At that point the globe is 88–100 % through its zoom, essentially
+  // stationary. Labels go straight to their final column positions —
+  // no "fly from dot" animation — so there is zero jitter from a moving camera.
+  // Opacity is the only animated property (0→1 as scroll 0.93→1.0).
+  useEffect(() => {
+    let rafId: number;
+    let lastClearProgress = -1;
+
+    const tick = () => {
+      const scroll = scrollProgressRef.current;
+      // 0→1 over the last 7 % of scroll
+      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.93) / 0.07));
+
+      // Clear labels when scrolling back past threshold
+      if (revealProgress < 0.01) {
+        if (lastClearProgress !== 0) {
+          setLabelRenders([]);
+          lastClearProgress = 0;
+        }
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      lastClearProgress = revealProgress;
+
+      const globe     = globeRef.current;
+      const container = stickyRef.current;
+      if (!globe?.camera || !globe?.renderer || !container) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const camera   = globe.camera();
+      const renderer = globe.renderer();
+      if (!camera || !renderer?.domElement) { rafId = requestAnimationFrame(tick); return; }
+
+      const containerRect = container.getBoundingClientRect();
+      const rendRect      = renderer.domElement.getBoundingClientRect();
+      const offX = rendRect.left - containerRect.left;
+      const offY = rendRect.top  - containerRect.top;
+      const rW   = renderer.domElement.clientWidth;
+      const rH   = renderer.domElement.clientHeight;
+
+      // Globe centre on screen
+      const cv = new THREE.Vector3(0, 0, 0).project(camera);
+      const screenCX = (cv.x * 0.5 + 0.5) * rW + offX;
+      const screenCY = (-cv.y * 0.5 + 0.5) * rH + offY;
+
+      // Apparent globe radius on screen (three-globe default R = 100 world units)
+      const camDist  = camera.position.length();
+      const fovRad   = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180;
+      const sinAngle = Math.min(1, 100 / camDist);
+      const screenRadius = (rH / 2) / Math.tan(fovRad / 2) * sinAngle;
+
+      // Project all dots to screen space
+      type RawDot = { index: number; dotX: number; dotY: number; visible: boolean; side: "left" | "right" };
+      const rawDots: RawDot[] = [];
+
+      services.forEach((s, i) => {
+        const world = globe.getCoords?.(s.lat, s.lng, 0.015);
+        if (!world) return;
+        const v = new THREE.Vector3(world.x, world.y, world.z);
+        v.project(camera);
+        const dotX = (v.x * 0.5 + 0.5) * rW + offX;
+        const dotY = (-v.y * 0.5 + 0.5) * rH + offY;
+        rawDots.push({
+          index: i, dotX, dotY,
+          visible: v.z <= 1.1,
+          side: dotX <= screenCX ? "left" : "right",
+        });
+      });
+
+      // Columns sit just outside the globe edge
+      const GAP       = isMobile ? 10 : 20;
+      const leftColX  = screenCX - screenRadius - GAP;  // right edge of left pills
+      const rightColX = screenCX + screenRadius + GAP;  // left edge of right pills
+
+      // Spread pills evenly top-to-bottom with a margin
+      const vMargin = containerRect.height * 0.07;
+      const vSpread = containerRect.height - vMargin * 2;
+
+      const leftGroup  = rawDots.filter(d => d.side === "left" ).sort((a, b) => a.dotY - b.dotY);
+      const rightGroup = rawDots.filter(d => d.side === "right").sort((a, b) => a.dotY - b.dotY);
+
+      // Stagger: each pill fades in slightly after the previous one
+      const STAGGER = 0.06; // fraction of revealProgress per label
+
+      const distribute = (group: RawDot[], colX: number, side: "left" | "right"): ComputedLabel[] =>
+        group.map((d, idx) => {
+          const n = group.length;
+          const colY = n <= 1 ? screenCY : vMargin + (idx / (n - 1)) * vSpread;
+          // Staggered per-label opacity
+          const itemProgress = Math.max(0, Math.min(1, (revealProgress - idx * STAGGER) / (1 - (n - 1) * STAGGER)));
+          return {
+            index: d.index,
+            dotX: d.dotX,
+            dotY: d.dotY,
+            anchorX: colX,   // labels are placed directly at final column — no fly animation
+            anchorY: colY,
+            finalAnchorX: colX,
+            finalAnchorY: colY,
+            side,
+            showLine: d.visible,
+            opacity: itemProgress,
+          };
+        });
+
+      setLabelRenders([
+        ...distribute(leftGroup, leftColX, "left"),
+        ...distribute(rightGroup, rightColX, "right"),
+      ]);
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient, isMobile]);
+
+  // ── Globe controls ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!isClient || !globeRef.current) return;
-
     const globe = globeRef.current;
 
     const lockControls = () => {
       if (globe?.controls) {
-        const controls = globe.controls();
-        controls.autoRotate = false;
-        controls.enableZoom = false;
-        controls.enablePan = false;
-        controls.enableRotate = false;
-        controls.enableDamping = false;
-        controls.dampingFactor = 0;
-        controls.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
-        controls.touches = { ONE: undefined, TWO: undefined };
+        const c = globe.controls();
+        c.autoRotate = false;
+        c.enableZoom = false;
+        c.enablePan = false;
+        c.enableRotate = false;
+        c.enableDamping = false;
+        c.dampingFactor = 0;
+        c.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
+        c.touches = { ONE: undefined, TWO: undefined };
       }
     };
 
     const setInitialView = () => {
       if (globe?.pointOfView) {
         globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+        correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
       }
       lockControls();
     };
@@ -230,16 +377,11 @@ export default function NetworkSection() {
     setInitialView();
     const t1 = setTimeout(setInitialView, 300);
     const t2 = setTimeout(setInitialView, 800);
-
     const interval = setInterval(lockControls, 500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearInterval(interval);
-    };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(interval); };
   }, [isClient]);
 
-  // GSAP ScrollTrigger — globe scroll animation
+  // ── GSAP ScrollTrigger ───────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || !stickyRef.current) return;
 
@@ -261,64 +403,62 @@ export default function NetworkSection() {
           const globe = globeRef.current;
           if (!globe || !globe.pointOfView) return;
 
-          // Keep controls locked during scroll
           if (globe.controls) {
-            const controls = globe.controls();
-            controls.enableZoom = false;
-            controls.enablePan = false;
-            controls.enableRotate = false;
-            controls.enableDamping = false;
-            controls.minDistance = 0;
-            controls.maxDistance = Infinity;
+            const c = globe.controls();
+            c.enableZoom = false; c.enablePan = false;
+            c.enableRotate = false; c.enableDamping = false;
+            c.minDistance = 0; c.maxDistance = Infinity;
           }
 
           const clampedProgress = Math.max(0, Math.min(1, progress));
+          scrollProgressRef.current = clampedProgress;
+          setScrollProgress(clampedProgress);
+
           const initialAltitude = 2.5;
-          const finalAltitude = 1.2;
+          const finalAltitude   = 1.2;
 
           if (clampedProgress === 0) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: initialAltitude }, 0);
+            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
             return;
           }
 
-          // Phase 1 (0–0.4): rotate from China → USA
-          // Phase 2 (0.4–1): zoom into USA
           const phase1Progress = Math.min(1, clampedProgress / 0.4);
           const phase2Progress = Math.max(0, (clampedProgress - 0.4) / 0.6);
-
           const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * phase1Progress;
           const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * phase1Progress;
-
           const easedZoom = phase2Progress * phase2Progress * (3 - 2 * phase2Progress);
-          const altitude = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
+          const altitude  = initialAltitude - (initialAltitude - finalAltitude) * easedZoom;
 
           globe.pointOfView({ lat, lng, altitude: Math.max(finalAltitude, altitude) }, 0);
+          correctCameraUp(globe, lat, lng);
         },
 
         onEnter: () => {
           const globe = globeRef.current;
-          if (globe && globe.pointOfView) {
+          if (globe?.pointOfView) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
           }
         },
 
         onEnterBack: () => {
           const globe = globeRef.current;
-          if (globe && globe.pointOfView) {
+          if (globe?.pointOfView) {
             globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+            correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
           }
-          if (globe && globe.controls) {
-            const controls = globe.controls();
-            controls.enableZoom = false;
-            controls.enablePan = false;
-            controls.enableRotate = false;
+          if (globe?.controls) {
+            const c = globe.controls();
+            c.enableZoom = false; c.enablePan = false; c.enableRotate = false;
           }
         },
 
         onLeave: () => {
           const globe = globeRef.current;
-          if (globe && globe.pointOfView) {
+          if (globe?.pointOfView) {
             globe.pointOfView({ lat: USA_CENTER.lat, lng: USA_CENTER.lng, altitude: 1.2 }, 0);
+            correctCameraUp(globe, USA_CENTER.lat, USA_CENTER.lng);
           }
         },
       });
@@ -329,25 +469,20 @@ export default function NetworkSection() {
     return () => ctx.revert();
   }, [isMobile]);
 
-  // ---------- Globe data layers ----------
-
+  // ── Globe data ───────────────────────────────────────────────────────────
+  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.93) / 0.07));
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
 
   const globePoints = services.map((s, i) => ({
-    lat: s.lat,
-    lng: s.lng,
-    label: s.label,
+    lat: s.lat, lng: s.lng, label: s.label,
     size:  hover === i ? pointSizeHover : pointSize,
     color: hover === i ? "#ffffff" : "rgba(0,230,255,0.9)",
   }));
 
   const satelliteArcs = [
     ...services.map((s) => ({
-      startLat: HUB.lat,
-      startLng: HUB.lng,
-      endLat: s.lat,
-      endLng: s.lng,
+      startLat: HUB.lat, startLng: HUB.lng, endLat: s.lat, endLng: s.lng,
       color: ["rgba(0,230,255,0.3)", "rgba(0,230,255,0.7)"],
     })),
     { startLat: services[0].lat, startLng: services[0].lng, endLat: services[1].lat,  endLng: services[1].lng,  color: ["rgba(0,200,255,0.15)", "rgba(0,200,255,0.4)"] },
@@ -358,10 +493,13 @@ export default function NetworkSection() {
   ];
 
   const ringsData  = services.map((s) => ({ lat: s.lat, lng: s.lng }));
-  const labelsData = services.map((s) => ({ lat: s.lat, lng: s.lng, text: s.label, city: s.city }));
+  const labelsData = labelRevealProgress > 0.05
+    ? []
+    : services.map((s) => ({ lat: s.lat, lng: s.lng, text: s.label, city: s.city }));
 
   const handleGlobeClick = () => router.push("/served-sectors");
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <section
       ref={containerRef}
@@ -373,7 +511,7 @@ export default function NetworkSection() {
         className="h-screen min-h-[100dvh] w-full max-w-full overflow-hidden touch-none flex items-center justify-center relative"
         style={{ background: "#000000" }}
       >
-        {/* Star particle background */}
+        {/* Star canvas */}
         <canvas
           ref={starCanvasRef}
           className="absolute inset-0 w-full h-full pointer-events-none"
@@ -448,6 +586,101 @@ export default function NetworkSection() {
         )}
 
         <div className="absolute inset-0 bg-black/20 z-10 pointer-events-none" />
+
+        {/* SVG: connector lines from globe dot → pill anchor */}
+        <svg
+          style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            pointerEvents: "none", zIndex: 22, overflow: "visible",
+          }}
+        >
+          <defs>
+            <filter id="label-line-glow">
+              <feGaussianBlur stdDeviation="1.2" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          {labelRenders.map((lr) =>
+            lr.showLine && lr.opacity > 0.05 ? (
+              <line
+                key={lr.index}
+                x1={lr.dotX}           y1={lr.dotY}
+                x2={lr.finalAnchorX}   y2={lr.finalAnchorY}
+                stroke="rgba(0,230,255,0.6)"
+                strokeWidth="1.2"
+                strokeDasharray="6 4"
+                opacity={lr.opacity * 0.9}
+                filter="url(#label-line-glow)"
+              />
+            ) : null
+          )}
+        </svg>
+
+        {/* Glassmorphism labels — placed at final column positions, fade+scale in */}
+        {labelRenders.map((lr) => {
+          const isLeft  = lr.side === "left";
+          // scale from 0.88 → 1 as opacity 0 → 1, gives a subtle pop feel
+          const scale   = 0.88 + 0.12 * lr.opacity;
+          const baseTranslate = isLeft ? "translate(-100%, -50%)" : "translate(0%, -50%)";
+
+          return (
+            <div
+              key={lr.index}
+              onClick={handleGlobeClick}
+              style={{
+                position: "absolute",
+                left: lr.anchorX,
+                top:  lr.anchorY,
+                // combine the column-edge alignment with the scale pop
+                transform: `${baseTranslate} scale(${scale})`,
+                transformOrigin: isLeft ? "right center" : "left center",
+                opacity: lr.opacity,
+                zIndex: 25,
+                pointerEvents: lr.opacity > 0.3 ? "auto" : "none",
+                cursor: "pointer",
+                maxWidth: isMobile ? "36vw" : "220px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(0, 12, 30, 0.68)",
+                  backdropFilter: "blur(16px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                  border: "1px solid rgba(0, 230, 255, 0.35)",
+                  borderRadius: "24px",
+                  padding: isMobile ? "5px 11px" : "7px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  boxShadow: "0 4px 24px rgba(0,230,255,0.10), inset 0 1px 0 rgba(255,255,255,0.08)",
+                }}
+              >
+                <span
+                  style={{
+                    width: "6px", height: "6px",
+                    borderRadius: "50%",
+                    background: "#00E6FF",
+                    boxShadow: "0 0 8px rgba(0,230,255,1)",
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    color: "#cdf3ff",
+                    fontSize: isMobile ? "10px" : "12px",
+                    fontWeight: 600,
+                    letterSpacing: "0.02em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {services[lr.index].label}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

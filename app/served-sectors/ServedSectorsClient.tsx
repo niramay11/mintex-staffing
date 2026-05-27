@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { SECTORS } from '@/utils/Constan';
+
+const SNAP_DURATION  = 900;   // ms — generous for smooth-scroll to settle
+const DELTA_THRESHOLD = 60;   // px accumulated before snapping (trackpad guard)
 
 const ServedSectorsClient = () => {
     const cardsRef       = useRef<HTMLDivElement>(null);
@@ -9,41 +12,63 @@ const ServedSectorsClient = () => {
     const lockRef        = useRef(false);
     const inSectionRef   = useRef(false);
     const touchStartYRef = useRef(0);
+    const accumRef       = useRef(0); // trackpad delta accumulator
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    const getCardScrollTop = (index: number): number => {
+    const getSectionTop = (): number => {
         const el = cardsRef.current;
         if (!el) return 0;
-        const sectionTop = el.getBoundingClientRect().top + window.scrollY;
-        return sectionTop + index * window.innerHeight;
+        return el.getBoundingClientRect().top + window.scrollY;
     };
 
     const snapTo = (index: number) => {
         if (lockRef.current) return;
         const clamped = Math.max(0, Math.min(SECTORS.length - 1, index));
-        lockRef.current = true;
+        lockRef.current   = true;
         activeCardRef.current = clamped;
-        window.scrollTo({ top: getCardScrollTop(clamped), behavior: 'smooth' });
-        // Unlock after smooth-scroll finishes (~1000ms to be safe)
-        setTimeout(() => { lockRef.current = false; }, 1000);
+        accumRef.current  = 0;
+        window.scrollTo({ top: getSectionTop() + clamped * window.innerHeight, behavior: 'smooth' });
+        setTimeout(() => { lockRef.current = false; }, SNAP_DURATION);
     };
 
-    // ── Track whether user is inside the cards section ─────────────────────────
+    // ── Track section membership + sync active card ────────────────────────────
     useEffect(() => {
+        let wasInSection = false;
+
         const onScroll = () => {
             const el = cardsRef.current;
             if (!el) return;
             const rect = el.getBoundingClientRect();
-            inSectionRef.current = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
 
-            // Only sync activeCardRef when NOT mid-snap — prevents overwriting the snap target
-            if (inSectionRef.current && !lockRef.current) {
-                const sectionTop = el.getBoundingClientRect().top + window.scrollY;
-                const rawIndex = Math.round((window.scrollY - sectionTop) / window.innerHeight);
-                activeCardRef.current = Math.max(0, Math.min(SECTORS.length - 1, rawIndex));
+            // Strictly <= 0: only active once the container has scrolled to viewport top
+            const nowIn = rect.top <= 0 && rect.bottom > window.innerHeight;
+            inSectionRef.current = nowIn;
+
+            if (nowIn && !lockRef.current) {
+                const sectionTop = rect.top + window.scrollY;
+                const raw = (window.scrollY - sectionTop) / window.innerHeight;
+                activeCardRef.current = Math.max(0, Math.min(SECTORS.length - 1, Math.round(raw)));
             }
+
+            // ── Section entry: snap to nearest card to kill scroll momentum ──
+            // Without this, scroll momentum from above the section causes the
+            // wheel handler to see inSection=true and immediately snap to card 1,
+            // skipping card 0 entirely.
+            if (nowIn && !wasInSection && !lockRef.current) {
+                const sectionTop = rect.top + window.scrollY;
+                const raw = (window.scrollY - sectionTop) / window.innerHeight;
+                const nearest = Math.max(0, Math.min(SECTORS.length - 1, Math.round(raw)));
+                lockRef.current       = true;
+                activeCardRef.current = nearest;
+                accumRef.current      = 0;
+                window.scrollTo({ top: sectionTop + nearest * window.innerHeight, behavior: 'smooth' });
+                setTimeout(() => { lockRef.current = false; }, SNAP_DURATION);
+            }
+
+            wasInSection = nowIn;
         };
+
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
         return () => window.removeEventListener('scroll', onScroll);
@@ -58,13 +83,29 @@ const ServedSectorsClient = () => {
             const next = activeCardRef.current + dir;
 
             if (next < 0 || next >= SECTORS.length) {
-                // At the boundary — let the scroll through naturally
+                // At section boundary — prevent default ONLY when mid-snap so
+                // the ongoing smooth-scroll animation isn't disrupted.
+                // When not locked the browser can scroll naturally to exit.
+                if (lockRef.current) e.preventDefault();
+                accumRef.current = 0;
                 return;
             }
 
-            // Inside bounds — capture and snap
+            // Within bounds — always capture the event
             e.preventDefault();
-            if (!lockRef.current) snapTo(next);
+
+            if (lockRef.current) return;
+
+            // Trackpad guard: accumulate small deltas; mouse wheels are large
+            // enough (deltaMode 1 or large deltaY) to pass immediately.
+            if (e.deltaMode === 0) {
+                // Pixel mode (trackpad)
+                accumRef.current += Math.abs(e.deltaY);
+                if (accumRef.current < DELTA_THRESHOLD) return;
+            }
+            accumRef.current = 0;
+
+            snapTo(next);
         };
 
         window.addEventListener('wheel', onWheel, { passive: false });
@@ -81,7 +122,7 @@ const ServedSectorsClient = () => {
             if (Math.abs(dy) < 40) return;
             const dir  = dy > 0 ? 1 : -1;
             const next = activeCardRef.current + dir;
-            if (next >= 0 && next < SECTORS.length && !lockRef.current) snapTo(next);
+            if (next >= 0 && next < SECTORS.length) snapTo(next);
         };
         window.addEventListener('touchstart', onStart, { passive: true });
         window.addEventListener('touchend',   onEnd,   { passive: true });
@@ -108,8 +149,8 @@ const ServedSectorsClient = () => {
             {/* ── Stacking cards container ── */}
             {/*
                 Each card: sticky top-0, h-screen, increasing z-index.
-                The container height = N × 100vh which is the scroll budget.
-                JS above snaps the scroll to each card boundary.
+                Container height = N × 100vh = scroll budget.
+                JS above snaps scroll position to each card boundary.
             */}
             <div ref={cardsRef} style={{ height: `${SECTORS.length * 100}vh` }}>
                 {SECTORS.map((sector, index) => (
