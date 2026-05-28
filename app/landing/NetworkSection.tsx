@@ -59,11 +59,14 @@ type ComputedLabel = {
 };
 
 export default function NetworkSection() {
-  const containerRef  = useRef<HTMLElement>(null);
-  const stickyRef     = useRef<HTMLDivElement>(null);
-  const globeRef      = useRef<any>(null);
-  const starCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef      = useRef<HTMLElement>(null);
+  const stickyRef         = useRef<HTMLDivElement>(null);
+  const globeRef          = useRef<any>(null);
+  const starCanvasRef     = useRef<HTMLCanvasElement>(null);
   const scrollProgressRef = useRef(0);
+  // True while a GSAP step tween is running — tick loop skips label computation
+  // so labels never appear while the camera is still moving (eliminates jitter).
+  const globeAnimatingRef = useRef(false);
 
   const [isClient, setIsClient]       = useState(false);
   const [hover, setHover]             = useState<number | null>(null);
@@ -261,6 +264,13 @@ export default function NetworkSection() {
           setLabelRenders([]);
           smoothedAnchors.current = {};
         }
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      // Skip label computation while globe is animating — camera still moving,
+      // so any positions computed now would jitter on the next frame.
+      if (globeAnimatingRef.current) {
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -495,6 +505,12 @@ export default function NetworkSection() {
     // immediately replaces the running tween — no blocking, no queue needed.
     // ease:"power1.out" starts fast (no slow ramp-up) so movement is visible immediately.
     const animateToStep = (step: number) => {
+      // Mark animating so the RAF tick skips label computation while camera moves.
+      // Also clear any existing labels immediately so nothing is frozen mid-air.
+      globeAnimatingRef.current = true;
+      setLabelRenders([]);
+      smoothedAnchors.current = {};
+
       gsap.to(animProgress, {
         value: step / TOTAL_STEPS,
         duration: 0.55,
@@ -522,6 +538,10 @@ export default function NetworkSection() {
           const ez  = ph2 * ph2 * (3 - 2 * ph2);
           globe.pointOfView({ lat, lng, altitude: 2.5 - 0.5 * ez }, 0);
           correctCameraUp(globe, lat, lng);
+        },
+        onComplete: () => {
+          // Camera has stopped — now it's safe to compute label positions.
+          globeAnimatingRef.current = false;
         },
       });
     };
@@ -639,10 +659,9 @@ export default function NetworkSection() {
   ], []);
 
   const ringsData  = useMemo(() => services.map((s) => ({ lat: s.lat, lng: s.lng })), []);
-  const labelsData = useMemo(() => labelsVisible
-    ? []
-    : services.map((s) => ({ lat: s.lat, lng: s.lng, text: s.label, city: s.city })),
-  [labelsVisible]);
+  // Always empty — 3D labels are never shown; HTML glassmorphism badges handle display.
+  // This removes the overlap glitch that happened when switching labelsData mid-transition.
+  const labelsData = useMemo(() => [], []);
 
   const handleGlobeClick = () => router.push("/served-sectors");
 

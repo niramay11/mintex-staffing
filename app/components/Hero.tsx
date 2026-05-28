@@ -206,16 +206,12 @@ const Hero = () => {
         </motion.div>
       </div>
 
-      {/* RIGHT HERO CARDS */}
-      <motion.div
-        className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0"
-        initial={{ opacity: 0, x: 60 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
-      >
+      {/* RIGHT HERO CARDS — no whileInView so cards are never trapped in opacity:0
+          on mobile/tablet where the section may start below the fold.
+          Each FadingCard runs its own mount-triggered rise animation. */}
+      <div className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0">
         <HeroCards />
-      </motion.div>
+      </div>
     </motion.div>
   );
 };

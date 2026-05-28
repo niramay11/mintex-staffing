@@ -152,6 +152,13 @@ const CardBackground = () => (
 
 const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDesktop: boolean }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Wait for page to fully paint, then stagger the rise by each card's delay
+    const t = setTimeout(() => setMounted(true), 150 + config.delay * 200);
+    return () => clearTimeout(t);
+  }, [config.delay]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -171,10 +178,9 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
     <motion.div
       className={`w-[180px] h-[200px] ${isDesktop ? "absolute" : "relative"}`}
       style={isDesktop ? config.desktopPosition : {}}
-      initial={{ opacity: 0, scale: 0.9, y: 30 }}
-      whileInView={{ opacity: 1, scale: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.5, delay: config.delay, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 80 }}
+      animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 80 }}
+      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
       {/* Floating Animation */}
       <motion.div
