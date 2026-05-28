@@ -171,16 +171,16 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
     <motion.div
       className={`w-[180px] h-[200px] ${isDesktop ? "absolute" : "relative"}`}
       style={isDesktop ? config.desktopPosition : {}}
-      initial={{ opacity: 0, scale: 0.8, y: 50 }}
+      initial={{ opacity: 0, scale: 0.9, y: 30 }}
       whileInView={{ opacity: 1, scale: 1, y: 0 }}
-      viewport={{ once: false, amount: 0.3 }}
-      transition={{ duration: 0.6, delay: config.delay, ease: "easeOut" }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, delay: config.delay, ease: "easeOut" }}
     >
       {/* Floating Animation */}
       <motion.div
         className="w-full h-full relative"
-        animate={{ y: [0, -15, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: config.delay * 2 }}
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: config.delay * 2 }}
       >
         <div className="w-full h-full relative">
           <CardBackground />

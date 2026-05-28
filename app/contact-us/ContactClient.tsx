@@ -1,5 +1,6 @@
 "use client";
 
+import "leaflet/dist/leaflet.css";
 import React, { useState } from "react";
 import { Mail, Phone, Building, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";

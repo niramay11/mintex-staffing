@@ -27,13 +27,12 @@ const headingContainer = {
 };
 
 const wordVariants: any = {
-  hidden: { y: 30, opacity: 0, filter: "blur(6px)" },
+  hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
     opacity: 1,
-    filter: "blur(0px)",
     transition: {
-      duration: 0.6,
+      duration: 0.5,
       ease: "easeOut",
     },
   },
@@ -75,7 +74,7 @@ const Hero = () => {
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: false }}
+      viewport={{ once: true }}
     >
       {/* LEFT CONTENT */}
       <div className="w-full lg:w-2/3 flex flex-col items-start justify-start pt-8 md:pt-16 lg:pt-32 px-4 sm:px-6 md:px-8 lg:pl-22">
@@ -86,7 +85,7 @@ const Hero = () => {
           variants={headingContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false }}
+          viewport={{ once: true }}
         >
           {[
             "Built",
@@ -140,7 +139,7 @@ const Hero = () => {
           className="w-full flex flex-col sm:flex-row justify-start gap-5 md:gap-7 mt-10 md:mt-14 lg:mt-18 mb-10"
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false }}
+          viewport={{ once: true }}
           transition={{ staggerChildren: 0.15 }}
         >
           {/* Candidates */}
@@ -210,10 +209,10 @@ const Hero = () => {
       {/* RIGHT HERO CARDS */}
       <motion.div
         className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0"
-        initial={{ opacity: 0, x: 80, filter: "blur(10px)" }}
-        whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-        viewport={{ once: false }}
-        transition={{ duration: 1, delay: 0.6, ease: "easeOut" }}
+        initial={{ opacity: 0, x: 60 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
       >
         <HeroCards />
       </motion.div>

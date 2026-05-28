@@ -69,12 +69,6 @@ export default function InsightsSection() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowReels((prev) => !prev);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <section className="w-full bg-black py-20 md:py-32 overflow-hidden relative">
@@ -90,7 +84,7 @@ export default function InsightsSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false }}
+          viewport={{ once: true }}
           transition={{ duration: 0.8 }}
           variants={{
             hidden: { opacity: 0, x: -50 },
@@ -142,6 +136,22 @@ export default function InsightsSection() {
             <SocialIcon icon={<FaFacebookF />} delay={0.2} />
             <SocialIcon icon={<FaLinkedinIn />} delay={0.3} />
           </motion.div>
+
+          {/* Toggle button */}
+          <div className="flex gap-3 mt-8">
+            <button
+              onClick={() => setShowReels(false)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${!showReels ? "bg-cyan-500 text-black" : "border border-white/20 text-white/60 hover:text-white"}`}
+            >
+              Posts
+            </button>
+            <button
+              onClick={() => setShowReels(true)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${showReels ? "bg-cyan-500 text-black" : "border border-white/20 text-white/60 hover:text-white"}`}
+            >
+              Reels
+            </button>
+          </div>
         </motion.div>
 
         {/* RIGHT GRID - ORIGINAL CODE UNTOUCHED */}
@@ -221,7 +231,7 @@ function SocialIcon({ icon, delay = 0 }: { icon: React.ReactNode; delay?: number
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false }}
+      viewport={{ once: true }}
       transition={{ delay: 0.5 + delay }}
       className="group relative w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-[#57EEFF] hover:text-[#57EEFF] transition-all duration-300 cursor-pointer backdrop-blur-sm bg-black/20 hover:bg-black/40 hover:shadow-[0_0_15px_rgba(87,238,255,0.3)]"
     >

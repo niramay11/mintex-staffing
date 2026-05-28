@@ -11,14 +11,14 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
   const wrapRef        = useRef<HTMLDivElement>(null);
   const mapRef         = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [ready,    setReady]    = useState(false);
   const [pinPos,   setPinPos]   = useState<LabelInfo | null>(null);
   const [labelPos, setLabelPos] = useState<LabelInfo | null>(null);
 
-  useEffect(() => { setIsClient(true); }, []);
+  useEffect(() => { setReady(true); }, []);
 
   useEffect(() => {
-    if (!isClient || !mapRef.current || mapInstanceRef.current) return;
+    if (!ready || !mapRef.current || mapInstanceRef.current) return;
 
     import("leaflet").then((L) => {
       const pinLocation: [number, number] = [40.5768852, -74.384442];
@@ -104,6 +104,24 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         setLabelPos({ x: pt.x, y: pt.y + 44 });
         onPinReady?.(pt.x, pt.y);
 
+        const ROAD_CACHE_KEY = "mintex_roads_v1";
+
+        const drawRoads = (data: any) => {
+          if (!data.elements || !mapInstanceRef.current) return;
+          data.elements
+            .filter((el: any) => el.geometry?.length >= 2)
+            .map((el: any) => el.geometry.map((p: any) => [p.lat, p.lon] as [number, number]))
+            .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 12));
+        };
+
+        try {
+          const cached = sessionStorage.getItem(ROAD_CACHE_KEY);
+          if (cached) {
+            drawRoads(JSON.parse(cached));
+            return;
+          }
+        } catch (_) {}
+
         const b   = map.getBounds();
         const pad = 0.001;
         const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
@@ -112,11 +130,8 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`)
           .then(r => r.json())
           .then((data: any) => {
-            if (!data.elements || !mapInstanceRef.current) return;
-            data.elements
-              .filter((el: any) => el.geometry?.length >= 2)
-              .map((el: any) => el.geometry.map((p: any) => [p.lat, p.lon] as [number, number]))
-              .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 20));
+            try { sessionStorage.setItem(ROAD_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+            drawRoads(data);
           })
           .catch(() => {});
       });
@@ -125,9 +140,10 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
     return () => {
       if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
     };
-  }, [isClient]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
-  if (!isClient) return <div className="w-full h-full bg-[#0e1626]" />;
+  if (!ready) return <div className="w-full h-full bg-[#0e1626]" />;
 
   return (
     <div ref={wrapRef} style={{ position: "relative", width: "100%", height: "100%" }}>

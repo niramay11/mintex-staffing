@@ -113,12 +113,9 @@ function TiltCard({ children, className, delay }: { children: React.ReactNode; c
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
-      animate={isHovered ? {} : {
-        y: [0, -10, 0],
-        rotateZ: [0, 1, -1, 0],
-      }}
+      animate={isHovered ? {} : { y: [0, -8, 0] }}
       transition={isHovered ? {} : {
-        duration: floatDuration,
+        duration: floatDuration + 2,
         delay: floatDelay,
         repeat: Infinity,
         ease: "easeInOut",

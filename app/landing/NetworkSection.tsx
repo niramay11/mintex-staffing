@@ -68,8 +68,9 @@ export default function NetworkSection() {
   const [isClient, setIsClient]       = useState(false);
   const [hover, setHover]             = useState<number | null>(null);
   const [isMobile, setIsMobile]       = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [labelRenders, setLabelRenders]     = useState<ComputedLabel[]>([]);
+  const [labelsVisible, setLabelsVisible] = useState(false);
+  const labelsVisibleRef              = useRef(false);
+  const [labelRenders, setLabelRenders]   = useState<ComputedLabel[]>([]);
 
   const router = useRouter();
 
@@ -83,7 +84,8 @@ export default function NetworkSection() {
     const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
     if (!ctx) return;
 
-    const STAR_COUNT   = 250;
+    const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
+    const STAR_COUNT   = isMobileDevice ? 100 : 200;
     const STAR_MIN_R   = 0.6;
     const STAR_MAX_R   = 2.0;
     const CONNECT_DIST = 140;
@@ -91,6 +93,38 @@ export default function NetworkSection() {
     const STAR_SPEED   = 0.5;
     const LINE_COLOR: [number, number, number] = [120, 190, 255];
     let W = 0, H = 0;
+
+    // Pre-render a star sprite once — eliminates createRadialGradient per star per frame
+    const SPRITE_SIZES = 8; // one sprite per size bucket
+    const sprites: HTMLCanvasElement[] = [];
+    for (let si = 0; si < SPRITE_SIZES; si++) {
+      const r = STAR_MIN_R + (si / (SPRITE_SIZES - 1)) * (STAR_MAX_R - STAR_MIN_R);
+      const spriteSize = Math.ceil(r * 10 * 2) + 2;
+      const sp = document.createElement("canvas");
+      sp.width = spriteSize; sp.height = spriteSize;
+      const sc = sp.getContext("2d")!;
+      const cx = spriteSize / 2; const cy = spriteSize / 2;
+      const grd = sc.createRadialGradient(cx, cy, 0, cx, cy, r * 5);
+      grd.addColorStop(0, "rgba(180,220,255,0.9)");
+      grd.addColorStop(0.35, "rgba(130,190,255,0.35)");
+      grd.addColorStop(1, "rgba(80,140,255,0)");
+      sc.beginPath(); sc.arc(cx, cy, r * 5, 0, Math.PI * 2);
+      sc.fillStyle = grd; sc.fill();
+      const outer = r * 1.6; const inner = r * 0.38; const pts = 4;
+      sc.beginPath();
+      for (let i = 0; i < pts * 2; i++) {
+        const angle  = (i * Math.PI) / pts - Math.PI / 2;
+        const radius = i % 2 === 0 ? outer : inner;
+        i === 0
+          ? sc.moveTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius)
+          : sc.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+      }
+      sc.closePath();
+      sc.fillStyle = "rgba(220,242,255,1)";
+      sc.shadowBlur = r * 8; sc.shadowColor = "rgba(150,210,255,0.9)";
+      sc.fill();
+      sprites.push(sp);
+    }
 
     const resize = () => {
       W = canvas.width  = container.offsetWidth  || window.innerWidth;
@@ -103,12 +137,13 @@ export default function NetworkSection() {
 
     class Star {
       x = 0; y = 0; r = 0; vx = 0; vy = 0;
-      twinkleSpeed = 0; twinklePhase = 0; baseAlpha = 0;
+      twinkleSpeed = 0; twinklePhase = 0; baseAlpha = 0; spriteIdx = 0;
       constructor() { this.reset(true); }
       reset(randomY = false) {
         this.x  = Math.random() * W;
         this.y  = randomY ? Math.random() * H : -10;
         this.r  = STAR_MIN_R + Math.random() * (STAR_MAX_R - STAR_MIN_R);
+        this.spriteIdx = Math.round(((this.r - STAR_MIN_R) / (STAR_MAX_R - STAR_MIN_R)) * (SPRITE_SIZES - 1));
         this.vx = (Math.random() - 0.5) * STAR_SPEED;
         this.vy = (Math.random() - 0.5) * STAR_SPEED;
         this.twinkleSpeed = 0.008 + Math.random() * 0.014;
@@ -125,28 +160,11 @@ export default function NetworkSection() {
       }
       get alpha() { return this.baseAlpha * (0.75 + 0.25 * Math.sin(this.twinklePhase)); }
       draw() {
-        const a = this.alpha; const r = this.r;
-        const grd = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * 5);
-        grd.addColorStop(0,   `rgba(180,220,255,${a * 0.9})`);
-        grd.addColorStop(0.35,`rgba(130,190,255,${a * 0.35})`);
-        grd.addColorStop(1,   `rgba(80,140,255,0)`);
-        ctx.beginPath(); ctx.arc(this.x, this.y, r * 5, 0, Math.PI * 2);
-        ctx.fillStyle = grd; ctx.fill();
-        const outer = r * 1.6; const inner = r * 0.38; const pts = 4;
-        ctx.save(); ctx.translate(this.x, this.y); ctx.beginPath();
-        for (let i = 0; i < pts * 2; i++) {
-          const angle  = (i * Math.PI) / pts - Math.PI / 2;
-          const radius = i % 2 === 0 ? outer : inner;
-          i === 0
-            ? ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius)
-            : ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
-        }
-        ctx.closePath();
-        ctx.fillStyle = `rgba(220,242,255,${a})`;
-        ctx.shadowBlur  = r * 8;
-        ctx.shadowColor = `rgba(150,210,255,${a * 0.9})`;
-        ctx.fill();
-        ctx.restore();
+        const sp = sprites[this.spriteIdx];
+        const half = sp.width / 2;
+        ctx.globalAlpha = this.alpha;
+        ctx.drawImage(sp, this.x - half, this.y - half);
+        ctx.globalAlpha = 1;
       }
     }
 
@@ -228,6 +246,7 @@ export default function NetworkSection() {
   // Each label is placed in the direction of its dot from the globe center,
   // at screenRadius + LABEL_OFFSET px from center. Lines are short and direct.
   const smoothedAnchors = useRef<{[idx: number]: {x: number; y: number}}>({});
+  const lastRevealProgress = useRef(-1);
 
   useEffect(() => {
     let rafId: number;
@@ -237,8 +256,11 @@ export default function NetworkSection() {
       const revealProgress = Math.max(0, Math.min(1, (scroll - 0.75) / 0.25));
 
       if (revealProgress < 0.01) {
-        setLabelRenders([]);
-        smoothedAnchors.current = {};
+        if (lastRevealProgress.current !== 0) {
+          lastRevealProgress.current = 0;
+          setLabelRenders([]);
+          smoothedAnchors.current = {};
+        }
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -321,7 +343,7 @@ export default function NetworkSection() {
 
       // Push-apart: spread labels so no two are closer than MIN_SEP px
       const pos = entries.map(e => ({ x: e.rawX, y: e.rawY }));
-      for (let pass = 0; pass < 14; pass++) {
+      for (let pass = 0; pass < 6; pass++) {
         for (let i = 0; i < pos.length; i++) {
           for (let j = i + 1; j < pos.length; j++) {
             const dx   = pos[j].x - pos[i].x;
@@ -413,11 +435,25 @@ export default function NetworkSection() {
       lockControls();
     };
 
+    // Permanently block OrbitControls from receiving wheel events on its canvas.
+    // This is a second layer of defense — the window capture handler also blocks,
+    // but this ensures OrbitControls never zooms regardless of listener order.
+    const attachCanvasBlocker = () => {
+      const canvas = globe?.renderer?.()?.domElement;
+      if (canvas && !(canvas as any).__wheelBlocked) {
+        (canvas as any).__wheelBlocked = true;
+        canvas.addEventListener("wheel", (e: Event) => {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }, { passive: false, capture: true });
+      }
+    };
+
     setInitialView();
-    const t1 = setTimeout(setInitialView, 300);
-    const t2 = setTimeout(setInitialView, 800);
-    const interval = setInterval(lockControls, 100);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(interval); };
+    attachCanvasBlocker();
+    const t1 = setTimeout(() => { setInitialView(); attachCanvasBlocker(); }, 300);
+    const t2 = setTimeout(() => { setInitialView(); attachCanvasBlocker(); }, 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [isClient]);
 
   // ── GSAP ScrollTrigger (pin only) + wheel-step animation ───────────────
@@ -467,7 +503,11 @@ export default function NetworkSection() {
         onUpdate: () => {
           const p = animProgress.value;
           scrollProgressRef.current = p;
-          setScrollProgress(p);
+          const newVisible = p > 0.525;
+          if (newVisible !== labelsVisibleRef.current) {
+            labelsVisibleRef.current = newVisible;
+            setLabelsVisible(newVisible);
+          }
           lockGlobeControls();
 
           const globe = globeRef.current;
@@ -493,20 +533,22 @@ export default function NetworkSection() {
         end: "+=200%",
         pin: stickyRef.current,
         pinSpacing: true,
-        anticipatePin: 1,
         markers: false,
 
         onEnter: () => {
           sectionActive = true; currentStep = 0;
           animProgress.value = 0;
-          scrollProgressRef.current = 0; setScrollProgress(0);
-          resetGlobe();
+          scrollProgressRef.current = 0;
+          if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
+          gsap.killTweensOf(animProgress);
+          resetGlobe(); lockGlobeControls();
         },
         onLeave:     () => { sectionActive = false; },
         onEnterBack: () => {
           sectionActive = true; currentStep = TOTAL_STEPS;
           animProgress.value = 1;
-          scrollProgressRef.current = 1; setScrollProgress(1);
+          scrollProgressRef.current = 1;
+          if (!labelsVisibleRef.current) { labelsVisibleRef.current = true; setLabelsVisible(true); }
           gsap.killTweensOf(animProgress);
           lockGlobeControls();
         },
@@ -559,20 +601,19 @@ export default function NetworkSection() {
       animateToStep(currentStep);
     };
 
-    const sticky = stickyRef.current!;
-    sticky.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    // window + capture fires before ANY element in the DOM (including globe canvas).
+    // stopPropagation() when active prevents the event from ever reaching OrbitControls.
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
 
     return () => {
       ctx.revert();
       gsap.killTweensOf(animProgress);
-      sticky.removeEventListener("wheel", onWheel, { capture: true });
+      window.removeEventListener("wheel", onWheel, { capture: true });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
   // ── Globe data ───────────────────────────────────────────────────────────
-  const labelRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.5) / 0.5));
-  const labelsVisible = labelRevealProgress > 0.05;
   const pointSize      = isMobile ? 0.15 : 0.2;
   const pointSizeHover = isMobile ? 0.28 : 0.35;
 
@@ -635,7 +676,7 @@ export default function NetworkSection() {
                 globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
                 backgroundImageUrl=""
                 backgroundColor="rgba(0,0,0,0)"
-                rendererConfig={{ alpha: true, antialias: true }}
+                rendererConfig={{ alpha: true, antialias: !isMobile }}
 
                 pointsData={globePoints}
                 pointLabel={(d: any) => `<div style="cursor:pointer;font-size:13px;padding:6px 10px;background:rgba(0,0,0,0.85);border:1px solid rgba(87,238,255,0.5);border-radius:6px;color:#57EEFF;font-weight:600;">${d.label}<br/><span style="font-size:10px;color:#fff;opacity:0.6;">Click to view sectors</span></div>`}
@@ -653,7 +694,7 @@ export default function NetworkSection() {
                 arcDashLength={(d: any) => d.dashLen ?? 1}
                 arcDashGap={(d: any) => d.dashGap ?? 0}
                 arcDashAnimateTime={(d: any) => d.dashAnimTime ?? 0}
-                arcCurveResolution={isMobile ? 128 : 256}
+                arcCurveResolution={isMobile ? 48 : 96}
 
                 ringsData={ringsData}
                 ringColor={() => (t: number) => `rgba(0,230,255,${1 - t})`}

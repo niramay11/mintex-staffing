@@ -1,10 +1,10 @@
 import About from "./landing/About";
 import Hero from "./components/Hero";
-import NetworkSection from "./landing/NetworkSection";
 import StatisticsWrapper from "./landing/StatisticsWrapper";
 import InsightsSection from "./landing/InsightsSection";
 import ScrollReveal from "./components/ScrollReveal";
 import IsometricServiceGrid from "./landing/ServicesGrid";
+import NetworkSectionLazy from "./landing/NetworkSectionLazy";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -21,8 +21,7 @@ export default function Home() {
         <About />
       </ScrollReveal>
 
-      {/* NetworkSection handles its own animations internally */}
-      <NetworkSection />
+      <NetworkSectionLazy />
 
       <div className="bg-service">
         <ScrollReveal>
