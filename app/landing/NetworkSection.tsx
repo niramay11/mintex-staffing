@@ -416,7 +416,7 @@ export default function NetworkSection() {
     setInitialView();
     const t1 = setTimeout(setInitialView, 300);
     const t2 = setTimeout(setInitialView, 800);
-    const interval = setInterval(lockControls, 500);
+    const interval = setInterval(lockControls, 100);
     return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(interval); };
   }, [isClient]);
 
@@ -520,10 +520,15 @@ export default function NetworkSection() {
     }, containerRef);
 
     // ── Wheel handler ────────────────────────────────────────────────────
+    // Attached to stickyRef in CAPTURE phase so it fires before the event
+    // descends into the globe canvas. stopPropagation() in capture phase
+    // stops the event from ever reaching OrbitControls → no unwanted zoom.
     const onWheel = (e: WheelEvent) => {
       if (!sectionActive) return;
 
-      // Always block native scroll — exit is handled explicitly below.
+      // Block the event from reaching globe canvas (OrbitControls zoom).
+      e.stopPropagation();
+      // Block native page scroll — exit is handled explicitly below.
       e.preventDefault();
 
       const now      = Date.now();
@@ -531,8 +536,8 @@ export default function NetworkSection() {
       const nextStep = currentStep + dir;
 
       if (nextStep > TOTAL_STEPS) {
-        // Require cooldown before exiting — prevents inertia from immediately
-        // pushing past step 4 before the user intends to leave.
+        // Require cooldown before exiting — prevents inertia immediately
+        // pushing past the last step before the user intends to leave.
         if (now - lastScrollMs < STEP_COOLDOWN) return;
         sectionActive = false;
         gsap.killTweensOf(animProgress);
@@ -547,19 +552,20 @@ export default function NetworkSection() {
         return;
       }
 
-      // Throttle step advances — blocks trackpad inertia from racing through all 4 steps.
+      // Throttle step advances — blocks trackpad inertia from racing through steps.
       if (now - lastScrollMs < STEP_COOLDOWN) return;
       lastScrollMs = now;
       currentStep = nextStep;
       animateToStep(currentStep);
     };
 
-    window.addEventListener("wheel", onWheel, { passive: false });
+    const sticky = stickyRef.current!;
+    sticky.addEventListener("wheel", onWheel, { passive: false, capture: true });
 
     return () => {
       ctx.revert();
       gsap.killTweensOf(animProgress);
-      window.removeEventListener("wheel", onWheel);
+      sticky.removeEventListener("wheel", onWheel, { capture: true });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
