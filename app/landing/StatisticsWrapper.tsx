@@ -37,6 +37,7 @@ async function fetchStats(): Promise<StatisticsData | null> {
         month: m.month,
         value: m.value,
       })),
+      marketDataYear: configRes.data.market_data_year ?? new Date().getFullYear(),
       retentionClientYears: configRes.data.retention_client_years,
       retentionCandidateYears: configRes.data.retention_candidate_years,
     };
