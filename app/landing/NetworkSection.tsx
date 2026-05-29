@@ -491,9 +491,12 @@ export default function NetworkSection() {
       const globe = globeRef.current;
       if (!globe?.controls) return;
       const c = globe.controls();
+      c.autoRotate = false;
       c.enableZoom = false; c.enablePan = false;
       c.enableRotate = false; c.enableDamping = false;
       c.minDistance = 0; c.maxDistance = Infinity;
+      c.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
+      c.touches = { ONE: undefined, TWO: undefined };
     };
 
     // Animate globe to a discrete step. overwrite:true means each new scroll
@@ -535,7 +538,6 @@ export default function NetworkSection() {
           correctCameraUp(globe, lat, lng);
         },
         onComplete: () => {
-          // Camera has stopped — now it's safe to compute label positions.
           globeAnimatingRef.current = false;
         },
       });
@@ -565,6 +567,7 @@ export default function NetworkSection() {
           scrollProgressRef.current = 1;
           if (!labelsVisibleRef.current) { labelsVisibleRef.current = true; setLabelsVisible(true); }
           gsap.killTweensOf(animProgress);
+          globeAnimatingRef.current = false;
           lockGlobeControls();
         },
         onLeaveBack: () => {
@@ -693,12 +696,11 @@ export default function NetworkSection() {
                 rendererConfig={{ alpha: true, antialias: !isMobile }}
 
                 pointsData={globePoints}
-                pointLabel={(d: any) => `<div style="cursor:pointer;font-size:13px;padding:6px 10px;background:rgba(0,0,0,0.85);border:1px solid rgba(87,238,255,0.5);border-radius:6px;color:#57EEFF;font-weight:600;">${d.label}<br/><span style="font-size:10px;color:#fff;opacity:0.6;">Click to view sectors</span></div>`}
+                pointLabel={(d: any) => `<div style="font-size:13px;padding:6px 10px;background:rgba(0,0,0,0.85);border:1px solid rgba(87,238,255,0.5);border-radius:6px;color:#57EEFF;font-weight:600;">${d.label}</div>`}
                 pointColor="color"
                 pointRadius="size"
                 pointResolution={12}
                 pointAltitude={0.01}
-                onPointClick={handleGlobeClick}
 
                 arcsData={satelliteArcs}
                 arcColor="color"
@@ -740,7 +742,6 @@ export default function NetworkSection() {
                     setHover(null);
                   }
                 }}
-                onLabelClick={handleGlobeClick}
               />
             </div>
           </div>
@@ -784,7 +785,6 @@ export default function NetworkSection() {
           return (
             <div
               key={lr.index}
-              onClick={handleGlobeClick}
               style={{
                 position: "absolute",
                 left: lr.anchorX,
@@ -793,8 +793,7 @@ export default function NetworkSection() {
                 transformOrigin: "center center",
                 opacity: lr.opacity,
                 zIndex: 25,
-                pointerEvents: lr.opacity > 0.25 ? "auto" : "none",
-                cursor: "pointer",
+                pointerEvents: "none",
                 maxWidth: isMobile ? "38vw" : "200px",
                 whiteSpace: "nowrap",
               }}
