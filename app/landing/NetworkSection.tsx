@@ -250,17 +250,25 @@ export default function NetworkSection() {
   // at screenRadius + LABEL_OFFSET px from center. Lines are short and direct.
   const smoothedAnchors = useRef<{[idx: number]: {x: number; y: number}}>({});
   const lastRevealProgress = useRef(-1);
+  // Smoothed reveal progress for buttery fade-out (never snaps to 0)
+  const smoothRevealRef = useRef(0);
 
   useEffect(() => {
     let rafId: number;
 
     const tick = () => {
       const scroll = scrollProgressRef.current;
-      // Labels start at 88% of the way through step 2 — camera barely moves in
-      // the last 12% so labels appear without jitter, and feel immediate to the user.
-      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.88) / 0.12));
+      // Raw target reveal progress: labels appear during step 2 (p 0.5 → 1.0)
+      const targetReveal = Math.max(0, Math.min(1, (scroll - 0.5) / 0.5));
+      // Smooth the reveal progress so labels never snap-vanish on reverse
+      const FADE_IN_LERP  = 0.18;
+      const FADE_OUT_LERP = 0.08; // slower fade-out for smooth reverse
+      const lerpFactor = targetReveal > smoothRevealRef.current ? FADE_IN_LERP : FADE_OUT_LERP;
+      smoothRevealRef.current += (targetReveal - smoothRevealRef.current) * lerpFactor;
+      const revealProgress = smoothRevealRef.current;
 
-      if (revealProgress < 0.01) {
+      if (revealProgress < 0.005) {
+        smoothRevealRef.current = 0; // clamp to zero once close enough
         if (lastRevealProgress.current !== 0) {
           lastRevealProgress.current = 0;
           setLabelRenders([]);
@@ -389,10 +397,10 @@ export default function NetworkSection() {
         const smY = prev.y + (targetY - prev.y) * LERP;
         smoothedAnchors.current[e.index] = { x: smX, y: smY };
 
-        const maxOff = (entries.length - 1) * STAGGER;
-        const itemProgress = Math.max(0, Math.min(1,
-          (revealProgress - idx * STAGGER) / Math.max(0.01, 1 - maxOff)
-        ));
+        // Simple uniform fade — all labels share the same smoothed opacity
+        // This eliminates the reverse-stagger ordering bug where some labels
+        // would vanish while others stayed visible.
+        const itemProgress = Math.max(0, Math.min(1, revealProgress));
 
         return {
           index: e.index,
@@ -413,132 +421,131 @@ export default function NetworkSection() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient, isMobile]);
 
-  // ── Globe controls ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isClient || !globeRef.current) return;
+  // ── Globe ready handler — fires once Three.js is fully initialized ────────
+  // Called via onGlobeReady prop. globeRef.current is guaranteed to be set here.
+  // This replaces the old isClient useEffect which ran before globeRef was ready.
+  const handleGlobeReady = () => {
     const globe = globeRef.current;
+    if (!globe) return;
 
-    const lockControls = () => {
-      if (globe?.controls) {
-        const c = globe.controls();
-        c.autoRotate = false;
-        c.enableZoom = false;
-        c.enablePan = false;
-        c.enableRotate = false;
-        c.enableDamping = false;
-        c.dampingFactor = 0;
-        c.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
-        c.touches = { ONE: undefined, TWO: undefined };
-      }
-    };
+    // Lock OrbitControls so the user can't pan/zoom the globe manually
+    const c = globe.controls?.();
+    if (c) {
+      c.autoRotate = false;
+      c.enableZoom = false; c.enablePan = false;
+      c.enableRotate = false; c.enableDamping = false;
+      c.dampingFactor = 0;
+      c.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
+      c.touches = { ONE: undefined, TWO: undefined };
+    }
 
-    const setInitialView = () => {
-      if (globe?.pointOfView) {
+    // Block OrbitControls wheel zoom via stopImmediatePropagation.
+    // IMPORTANT: do NOT call preventDefault here — that would block the browser's
+    // native page scroll and prevent ScrollTrigger from receiving scroll events.
+    const canvas = globe.renderer?.()?.domElement;
+    if (canvas && !(canvas as any).__wheelBlocked) {
+      (canvas as any).__wheelBlocked = true;
+      canvas.addEventListener("wheel", (e: Event) => {
+        e.stopImmediatePropagation(); // stops OrbitControls from zooming
+        // no preventDefault — page scroll must work so ScrollTrigger fires
+      }, { capture: true });
+    }
+
+    // Apply initial globe position matching current scroll state (2-step formula)
+    const p = scrollProgressRef.current;
+    if (globe.pointOfView) {
+      if (p <= 0) {
         globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
         correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
+      } else {
+        const ph1 = Math.min(1, p * 2);
+        const ph2 = Math.max(0, (p - 0.5) * 2);
+        const lat  = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
+        const lng  = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
+        const ez   = ph2 * ph2 * (3 - 2 * ph2);
+        globe.pointOfView({ lat, lng, altitude: 2.5 - 0.8 * ez }, 0);
+        correctCameraUp(globe, lat, lng);
       }
-      lockControls();
-    };
+    }
 
-    // Permanently block OrbitControls from receiving wheel events on its canvas.
-    // This is a second layer of defense — the window capture handler also blocks,
-    // but this ensures OrbitControls never zooms regardless of listener order.
-    const attachCanvasBlocker = () => {
-      const canvas = globe?.renderer?.()?.domElement;
-      if (canvas && !(canvas as any).__wheelBlocked) {
-        (canvas as any).__wheelBlocked = true;
-        canvas.addEventListener("wheel", (e: Event) => {
-          e.stopImmediatePropagation();
-          e.preventDefault();
-        }, { passive: false, capture: true });
-      }
-    };
+    // Refresh ScrollTrigger so it recalculates positions now that Globe is in the DOM
+    setTimeout(() => ScrollTrigger.refresh(), 50);
+  };
 
-    setInitialView();
-    attachCanvasBlocker();
-    const t1 = setTimeout(() => { setInitialView(); attachCanvasBlocker(); }, 300);
-    const t2 = setTimeout(() => { setInitialView(); attachCanvasBlocker(); }, 800);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [isClient]);
-
-  // ── GSAP ScrollTrigger (pin only) + wheel-step animation ───────────────
-  //
-  // • ScrollTrigger pins the section. Globe is animated by GSAP tween — no scrub.
-  // • Every wheel event while active is preventDefault'd (no inertia leaks out).
-  // • No "busy" flag — each scroll immediately starts a new tween (overwrite:true)
-  //   from the current animated position, so there is zero blocking/lag.
-  // • Exit uses st.start / st.end from the ScrollTrigger instance so it works
-  //   correctly whether the user entered from above OR from below.
+  // ── GSAP ScrollTrigger + 2-step wheel animation ──────────────────────────
+  // Scroll 1 → globe rotates China→USA  (step 1)
+  // Scroll 2 → globe zooms in, labels appear  (step 2)
+  // Section HOLDS at step 2 — labels stay visible, page does NOT scroll.
+  // Scroll 3 → section releases, next section comes into view.
   useEffect(() => {
     if (!containerRef.current || !stickyRef.current) return;
 
-    const animProgress  = { value: 0 };
-    let   currentStep   = 0;
-    let   sectionActive = false;
-    let   lastScrollMs  = 0;          // timestamp of last accepted scroll step
-    let   st: ScrollTrigger | null = null;
+    const animProg    = { value: 0 };
+    let currentStep   = 0;
+    let sectionActive = false;
+    let lastStepMs    = 0;
+    let readyToExit   = false; // true only after step-2 tween COMPLETES
+    let st: ScrollTrigger | null = null;
     const TOTAL_STEPS   = 2;
-    const STEP_COOLDOWN = 480;        // ms — prevents inertia from racing through steps
+    const STEP_COOLDOWN    = 400;  // ms — prevents inertia racing through steps
+    const BACK_EXIT_COOLDOWN = 300; // ms for upward exit only
 
-    const resetGlobe = () => {
-      const globe = globeRef.current;
-      if (!globe?.pointOfView) return;
-      globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
-      correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
-    };
-
-    const lockGlobeControls = () => {
+    const lockControls = () => {
       const globe = globeRef.current;
       if (!globe?.controls) return;
       const c = globe.controls();
-      c.autoRotate = false;
-      c.enableZoom = false; c.enablePan = false;
+      c.autoRotate = false; c.enableZoom = false; c.enablePan = false;
       c.enableRotate = false; c.enableDamping = false;
       c.minDistance = 0; c.maxDistance = Infinity;
       c.mouseButtons = { LEFT: undefined, MIDDLE: undefined, RIGHT: undefined };
       c.touches = { ONE: undefined, TWO: undefined };
     };
 
-    // Animate globe to a discrete step. overwrite:true means each new scroll
-    // immediately replaces the running tween — no blocking, no queue needed.
-    // ease:"power1.out" starts fast (no slow ramp-up) so movement is visible immediately.
-    const animateToStep = (step: number) => {
-      // Mark animating so the RAF tick skips label computation while camera moves.
-      // Also clear any existing labels immediately so nothing is frozen mid-air.
-      globeAnimatingRef.current = true;
-      setLabelRenders([]);
-      smoothedAnchors.current = {};
+    const applyProgress = (p: number) => {
+      lockControls();
+      const globe = globeRef.current;
+      if (!globe?.pointOfView) return;
+      if (p <= 0) {
+        globe.pointOfView({ lat: CHINA_CENTER.lat, lng: CHINA_CENTER.lng, altitude: 2.5 }, 0);
+        correctCameraUp(globe, CHINA_CENTER.lat, CHINA_CENTER.lng);
+        return;
+      }
+      // Step 1 (p 0→0.5): rotate China → USA, altitude stays at 2.5
+      // Step 2 (p 0.5→1.0): zoom in to altitude 2.0, labels fade in
+      const ph1 = Math.min(1, p * 2);
+      const ph2 = Math.max(0, (p - 0.5) * 2);
+      const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
+      const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
+      const ez  = ph2 * ph2 * (3 - 2 * ph2); // smoothstep for natural zoom feel
+      globe.pointOfView({ lat, lng, altitude: 2.5 - 0.8 * ez }, 0);
+      correctCameraUp(globe, lat, lng);
+    };
 
-      gsap.to(animProgress, {
-        value: step / TOTAL_STEPS,
-        duration: 0.55,
-        ease: "power1.out",
+    const animateToStep = (step: number) => {
+      globeAnimatingRef.current = true;
+      readyToExit = false; // reset — not ready to exit until this tween completes
+      const targetValue = step / TOTAL_STEPS;
+      const isReversing = targetValue < animProg.value;
+      gsap.to(animProg, {
+        value: targetValue,
+        duration: isReversing ? 1.0 : 0.85,
+        ease: isReversing ? "power1.inOut" : "power2.inOut",
         overwrite: true,
         onUpdate: () => {
-          const p = animProgress.value;
+          const p = animProg.value;
           scrollProgressRef.current = p;
-          const newVisible = p > 0.525;
-          if (newVisible !== labelsVisibleRef.current) {
-            labelsVisibleRef.current = newVisible;
-            setLabelsVisible(newVisible);
+          const nowVisible = p > 0.35;
+          if (nowVisible !== labelsVisibleRef.current) {
+            labelsVisibleRef.current = nowVisible;
+            setLabelsVisible(nowVisible);
           }
-          lockGlobeControls();
-
-          const globe = globeRef.current;
-          if (!globe?.pointOfView) return;
-          if (p <= 0) { resetGlobe(); return; }
-
-          // 0→50 %: rotate China→USA (step 1)   50→100 %: zoom in + labels (step 2)
-          const ph1 = Math.min(1, p / 0.5);
-          const ph2 = Math.max(0, (p - 0.5) / 0.5);
-          const lat = CHINA_CENTER.lat + (USA_CENTER.lat - CHINA_CENTER.lat) * ph1;
-          const lng = CHINA_CENTER.lng + (USA_CENTER.lng - CHINA_CENTER.lng) * ph1;
-          const ez  = ph2 * ph2 * (3 - 2 * ph2);
-          globe.pointOfView({ lat, lng, altitude: 2.5 - 0.5 * ez }, 0);
-          correctCameraUp(globe, lat, lng);
+          applyProgress(p);
         },
         onComplete: () => {
           globeAnimatingRef.current = false;
+          // Only allow forward exit AFTER the final-step tween has fully finished.
+          // This prevents inertia from exiting the section before labels are visible.
+          if (step === TOTAL_STEPS) readyToExit = true;
         },
       });
     };
@@ -547,86 +554,132 @@ export default function NetworkSection() {
       st = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
-        end: "+=200%",
+        end: "+=300%",   // large virtual space — section never auto-exits
         pin: stickyRef.current,
         pinSpacing: true,
         markers: false,
-
         onEnter: () => {
-          sectionActive = true; currentStep = 0;
-          animProgress.value = 0;
-          scrollProgressRef.current = 0;
+          if (sectionActive) return; // fallback already activated — don't reset
+          sectionActive = true; currentStep = 0; lastStepMs = 0; readyToExit = false;
+          animProg.value = 0; scrollProgressRef.current = 0;
           if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
-          gsap.killTweensOf(animProgress);
-          resetGlobe(); lockGlobeControls();
+          gsap.killTweensOf(animProg);
+          applyProgress(0); lockControls();
         },
-        onLeave:     () => { sectionActive = false; },
+        onLeave: () => { sectionActive = false; },
         onEnterBack: () => {
-          sectionActive = true; currentStep = TOTAL_STEPS;
-          animProgress.value = 1;
-          scrollProgressRef.current = 1;
+          sectionActive = true; currentStep = TOTAL_STEPS; lastStepMs = 0;
+          readyToExit = true; // entering from below — labels already shown, can exit
+          animProg.value = 1; scrollProgressRef.current = 1;
           if (!labelsVisibleRef.current) { labelsVisibleRef.current = true; setLabelsVisible(true); }
-          gsap.killTweensOf(animProgress);
+          gsap.killTweensOf(animProg);
           globeAnimatingRef.current = false;
-          lockGlobeControls();
+          applyProgress(1); lockControls();
         },
         onLeaveBack: () => {
-          sectionActive = false; currentStep = 0;
-          animProgress.value = 0;
-          gsap.killTweensOf(animProgress);
+          sectionActive = false; currentStep = 0; readyToExit = false;
+          animProg.value = 0; scrollProgressRef.current = 0;
+          gsap.killTweensOf(animProg);
+          if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
+          applyProgress(0);
         },
       });
       setTimeout(() => ScrollTrigger.refresh(), 200);
     }, containerRef);
 
-    // ── Wheel handler ────────────────────────────────────────────────────
-    // Attached to stickyRef in CAPTURE phase so it fires before the event
-    // descends into the globe canvas. stopPropagation() in capture phase
-    // stops the event from ever reaching OrbitControls → no unwanted zoom.
     const onWheel = (e: WheelEvent) => {
+      // Fallback: if onEnter hasn't fired yet but scroll is inside the trigger,
+      // self-activate so the first intentional scroll is never missed.
+      if (!sectionActive && st) {
+        const pos = window.scrollY;
+        if (pos >= st.start && pos <= st.end) {
+          sectionActive = true;
+          lastStepMs = 0;
+          const triggerProgress = (pos - st.start) / (st.end - st.start);
+          if (triggerProgress > 0.7) {
+            currentStep = TOTAL_STEPS; animProg.value = 1; scrollProgressRef.current = 1;
+            readyToExit = true;
+            if (!labelsVisibleRef.current) { labelsVisibleRef.current = true; setLabelsVisible(true); }
+            applyProgress(1);
+          } else {
+            currentStep = 0; animProg.value = 0; scrollProgressRef.current = 0;
+            readyToExit = false;
+            if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
+            applyProgress(0);
+          }
+          lockControls();
+        }
+      }
       if (!sectionActive) return;
-
-      // Block the event from reaching globe canvas (OrbitControls zoom).
       e.stopPropagation();
-      // Block native page scroll — exit is handled explicitly below.
       e.preventDefault();
 
-      const now      = Date.now();
-      const dir      = e.deltaY > 0 ? 1 : -1;
-      const nextStep = currentStep + dir;
+      const now  = Date.now();
+      const dir  = e.deltaY > 0 ? 1 : -1;
+      const next = currentStep + dir;
 
-      if (nextStep > TOTAL_STEPS) {
-        // Require cooldown before exiting — prevents inertia immediately
-        // pushing past the last step before the user intends to leave.
-        if (now - lastScrollMs < STEP_COOLDOWN) return;
+      if (next > TOTAL_STEPS) {
+        // Only exit AFTER the step-2 tween has fully completed (readyToExit).
+        // This guarantees all labels have faded in before the section releases.
+        if (!readyToExit) return;
         sectionActive = false;
-        gsap.killTweensOf(animProgress);
-        window.scrollTo(0, (st?.end ?? 0) + 50);
+        gsap.killTweensOf(animProg);
+        window.scrollTo({ top: (st?.end ?? 0) + 50, behavior: "instant" as ScrollBehavior });
         return;
       }
-      if (nextStep < 0) {
-        if (now - lastScrollMs < STEP_COOLDOWN) return;
+      if (next < 0) {
+        if (now - lastStepMs < BACK_EXIT_COOLDOWN) return;
         sectionActive = false;
-        gsap.killTweensOf(animProgress);
-        window.scrollTo(0, Math.max(0, (st?.start ?? 0) - 100));
+        gsap.killTweensOf(animProg);
+        window.scrollTo({ top: Math.max(0, (st?.start ?? 0) - 50), behavior: "instant" as ScrollBehavior });
         return;
       }
 
-      // Throttle step advances — blocks trackpad inertia from racing through steps.
-      if (now - lastScrollMs < STEP_COOLDOWN) return;
-      lastScrollMs = now;
-      currentStep = nextStep;
+      if (now - lastStepMs < STEP_COOLDOWN) return;
+      lastStepMs = now;
+      currentStep = next;
       animateToStep(currentStep);
     };
 
-    // window + capture fires before ANY element in the DOM (including globe canvas).
-    // stopPropagation() when active prevents the event from ever reaching OrbitControls.
-    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    let touchStartY = 0;
+    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0].clientY; };
+    const onTouchMove  = (e: TouchEvent) => { if (sectionActive) e.preventDefault(); };
+    const onTouchEnd   = (e: TouchEvent) => {
+      if (!sectionActive) return;
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      if (Math.abs(dy) < 40) return;
+      const dir  = dy > 0 ? 1 : -1;
+      const next = currentStep + dir;
+      const now  = Date.now();
+      if (next > TOTAL_STEPS) {
+        if (!readyToExit) return;
+        sectionActive = false; gsap.killTweensOf(animProg);
+        window.scrollTo({ top: (st?.end ?? 0) + 50, behavior: "instant" as ScrollBehavior });
+        return;
+      }
+      if (next < 0) {
+        if (now - lastStepMs < BACK_EXIT_COOLDOWN) return;
+        sectionActive = false; gsap.killTweensOf(animProg);
+        window.scrollTo({ top: Math.max(0, (st?.start ?? 0) - 50), behavior: "instant" as ScrollBehavior });
+        return;
+      }
+      if (now - lastStepMs < STEP_COOLDOWN) return;
+      lastStepMs = now; currentStep = next;
+      animateToStep(currentStep);
+    };
+
+    window.addEventListener("wheel",      onWheel,      { passive: false, capture: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove",  onTouchMove,  { passive: false, capture: true });
+    window.addEventListener("touchend",   onTouchEnd,   { passive: true });
 
     return () => {
       ctx.revert();
-      gsap.killTweensOf(animProgress);
-      window.removeEventListener("wheel", onWheel, { capture: true });
+      gsap.killTweensOf(animProg);
+      window.removeEventListener("wheel",      onWheel,      { capture: true });
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove",  onTouchMove,  { capture: true });
+      window.removeEventListener("touchend",   onTouchEnd);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
@@ -734,6 +787,7 @@ export default function NetworkSection() {
                 atmosphereAltitude={0.15}
 
                 enablePointerInteraction={true}
+                onGlobeReady={handleGlobeReady}
                 onPointHover={(point: any) => {
                   if (point) {
                     const index = services.findIndex(s => s.lat === point.lat && s.lng === point.lng);
@@ -785,6 +839,7 @@ export default function NetworkSection() {
           return (
             <div
               key={lr.index}
+              onClick={() => router.push("/served-sectors")}
               style={{
                 position: "absolute",
                 left: lr.anchorX,
@@ -793,7 +848,8 @@ export default function NetworkSection() {
                 transformOrigin: "center center",
                 opacity: lr.opacity,
                 zIndex: 25,
-                pointerEvents: "none",
+                pointerEvents: lr.opacity > 0.3 ? "auto" : "none",
+                cursor: "pointer",
                 maxWidth: isMobile ? "38vw" : "200px",
                 whiteSpace: "nowrap",
               }}
