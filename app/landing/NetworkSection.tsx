@@ -256,7 +256,9 @@ export default function NetworkSection() {
 
     const tick = () => {
       const scroll = scrollProgressRef.current;
-      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.75) / 0.25));
+      // Labels start at 88% of the way through step 2 — camera barely moves in
+      // the last 12% so labels appear without jitter, and feel immediate to the user.
+      const revealProgress = Math.max(0, Math.min(1, (scroll - 0.88) / 0.12));
 
       if (revealProgress < 0.01) {
         if (lastRevealProgress.current !== 0) {
@@ -264,13 +266,6 @@ export default function NetworkSection() {
           setLabelRenders([]);
           smoothedAnchors.current = {};
         }
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-
-      // Skip label computation while globe is animating — camera still moving,
-      // so any positions computed now would jitter on the next frame.
-      if (globeAnimatingRef.current) {
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -307,8 +302,8 @@ export default function NetworkSection() {
       const LABEL_OFFSET = isMobile ? 36 : 58; // px beyond globe edge
       const MIN_SEP      = isMobile ? 32 : 65; // min px between label centers
       const MAX_DEV      = isMobile ? 65 : 130; // max px a label can drift from its radial position
-      const LERP         = 0.14;
-      const STAGGER      = 0.055;
+      const LERP         = 0.22;
+      const STAGGER      = 0.035;
 
       // Safe screen bounds — account for half pill width so pills never bleed off-screen
       const PILL_HALF  = isMobile ? 72 : 108; // half of max pill width

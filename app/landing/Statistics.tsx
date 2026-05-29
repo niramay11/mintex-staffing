@@ -245,10 +245,23 @@ export default function Statistics({ data }: { data?: StatisticsData | null }) {
 
             <div className="flex-1 min-h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={d.marketData}>
+                <LineChart data={d.marketData} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
                   <Line type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} dot={false} animationDuration={1500} />
-                  <XAxis dataKey="month" stroke="rgba(255,255,255,0.15)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="rgba(255,255,255,0.15)" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="month"
+                    stroke="rgba(255,255,255,0.15)"
+                    tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.15)"
+                    tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={36}
+                  />
                   <Tooltip
                     contentStyle={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
                     itemStyle={{ color: "#22d3ee" }}
