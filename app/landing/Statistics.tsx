@@ -52,6 +52,7 @@ const DEFAULT_DATA: StatisticsData = {
     { month: "Sep", value: 310 }, { month: "Oct", value: 200 },
     { month: "Nov", value: 250 }, { month: "Dec", value: 320 },
   ],
+  marketDataYear: new Date().getFullYear(),
   retentionClientYears: 2.5,
   retentionCandidateYears: 2,
 };
@@ -239,7 +240,7 @@ export default function Statistics({ data }: { data?: StatisticsData | null }) {
                 <p className="text-sm text-white/30">JOLTS data overview</p>
               </div>
               <span className="text-xs text-cyan-400/70 font-medium bg-cyan-500/5 px-2.5 py-1 rounded-md border border-cyan-500/10">
-                2025–26
+                {d.marketDataYear}–{String(d.marketDataYear + 1).slice(-2)}
               </span>
             </div>
 

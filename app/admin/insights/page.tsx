@@ -476,6 +476,7 @@ function MarketDataEditor({ data, saving, saved, onSave }: {
   onSave: (section: string, updates: Partial<StatisticsData>) => void;
 }) {
   const [marketData, setMarketData] = useState<MarketPoint[]>(data.marketData);
+  const [year, setYear] = useState<number>(data.marketDataYear ?? new Date().getFullYear());
 
   const update = (index: number, value: number) => {
     setMarketData((prev) => prev.map((pt, i) => i === index ? { ...pt, value } : pt));
@@ -483,11 +484,20 @@ function MarketDataEditor({ data, saving, saved, onSave }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave("marketdata", { marketData });
+    onSave("marketdata", { marketData, marketDataYear: year });
   };
 
   return sectionBox("Job Opening Trends (Chart Data)", (
     <form onSubmit={handleSubmit}>
+      <div className="mb-5">
+        <label className="block text-xs text-gray-400 mb-1">Year</label>
+        <input
+          type="number"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+          className="w-32 px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-cyan-500 focus:outline-none"
+        />
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-5">
         {marketData.map((pt, i) => (
           <div key={pt.month}>

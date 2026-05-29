@@ -28,6 +28,7 @@ export type StatisticsData = {
   turnaroundHours: number;
   industries: Industry[];
   marketData: MarketPoint[];
+  marketDataYear: number;
   retentionClientYears: number;
   retentionCandidateYears: number;
 };
@@ -61,6 +62,7 @@ async function fetchAllStats(): Promise<StatisticsData> {
       month: m.month,
       value: m.value,
     })),
+    marketDataYear: config?.market_data_year ?? new Date().getFullYear(),
     retentionClientYears: config?.retention_client_years ?? 2.5,
     retentionCandidateYears: config?.retention_candidate_years ?? 2,
   };
@@ -78,7 +80,7 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { password, stats, yearsOfExperience, turnaroundHours, industries, marketData, retentionClientYears, retentionCandidateYears } = body;
+    const { password, stats, yearsOfExperience, turnaroundHours, industries, marketData, marketDataYear, retentionClientYears, retentionCandidateYears } = body;
 
     if (password !== ADMIN_PASSWORD) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -95,6 +97,7 @@ export async function PUT(req: NextRequest) {
     const configUpdates: Record<string, number> = {};
     if (yearsOfExperience !== undefined) configUpdates.years_of_experience = yearsOfExperience;
     if (turnaroundHours !== undefined) configUpdates.turnaround_hours = turnaroundHours;
+    if (marketDataYear !== undefined) configUpdates.market_data_year = marketDataYear;
     if (retentionClientYears !== undefined) configUpdates.retention_client_years = retentionClientYears;
     if (retentionCandidateYears !== undefined) configUpdates.retention_candidate_years = retentionCandidateYears;
 
