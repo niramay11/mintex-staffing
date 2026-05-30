@@ -271,8 +271,8 @@ export default function NetworkSection() {
       // Raw target reveal progress: labels appear during step 2 (p 0.5 → 1.0)
       const targetReveal = Math.max(0, Math.min(1, (scroll - 0.5) / 0.5));
       // Smooth the reveal progress so labels never snap-vanish on reverse
-      const FADE_IN_LERP  = 0.18;
-      const FADE_OUT_LERP = 0.08; // slower fade-out for smooth reverse
+      const FADE_IN_LERP  = 0.10; // gradual fade-in as labels rise during scroll
+      const FADE_OUT_LERP = 0.06; // gradual fade-out when scrolling back
       const lerpFactor = targetReveal > smoothRevealRef.current ? FADE_IN_LERP : FADE_OUT_LERP;
       smoothRevealRef.current += (targetReveal - smoothRevealRef.current) * lerpFactor;
       const revealProgress = smoothRevealRef.current;
@@ -418,14 +418,11 @@ export default function NetworkSection() {
         };
       });
 
-      // Skip React re-render while globe camera is moving (eliminates label jitter)
-      // Throttle to ~30fps to halve re-renders when labels are stable
-      if (!globeAnimatingRef.current) {
-        const nowMs = performance.now();
-        if (nowMs - lastLabelUpdateMs.current >= 33) {
-          lastLabelUpdateMs.current = nowMs;
-          setLabelRenders(newRenders);
-        }
+      // Throttle React re-renders to ~30fps
+      const nowMs = performance.now();
+      if (nowMs - lastLabelUpdateMs.current >= 33) {
+        lastLabelUpdateMs.current = nowMs;
+        setLabelRenders(newRenders);
       }
       rafId = requestAnimationFrame(tick);
     };
