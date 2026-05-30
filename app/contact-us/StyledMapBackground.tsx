@@ -33,7 +33,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
       });
 
       const tilePane = map.getPane("tilePane");
-      if (tilePane) tilePane.style.filter = "brightness(0.3) contrast(1.2)";
+      if (tilePane) tilePane.style.filter = "brightness(0.4) contrast(1.15) saturate(0.8)";
 
       L.default.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",

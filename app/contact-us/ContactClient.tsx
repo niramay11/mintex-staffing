@@ -57,12 +57,12 @@ const ContactClient = () => {
             </div>
 
             {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-linear-to-b
-  from-[#0e1626]/90
-  via-[#0e1626]/50
-  to-[#0e1626]/20
-  z-10 pointer-events-none">
-            </div>
+            <div
+              className="absolute inset-0 z-10 pointer-events-none"
+              style={{
+                background: "linear-gradient(to right, rgba(14,22,38,0.92) 0%, rgba(14,22,38,0.70) 40%, rgba(14,22,38,0.18) 70%, rgba(14,22,38,0.05) 100%)",
+              }}
+            />
 
             {/* --- CONTENT LAYER --- */}
             <div className="max-w-7xl mx-auto relative z-10 w-full">
