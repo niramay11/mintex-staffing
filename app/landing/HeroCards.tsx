@@ -7,15 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { HiMiniChartBarSquare, HiMiniUserGroup, HiMiniBuildingOffice2 } from "react-icons/hi2";
 import { FiBriefcase, FiMapPin } from "react-icons/fi";
 
-/**
- * HeroCards Component
- *
- * Displays mixed content cards (Stats, Jobs, Profiles) in a scattered layout.
- * Each card fades between content items without any flip/rotation effect.
- */
-
-// --- Types ---
-
 type CardType = 'stat' | 'job' | 'profile';
 
 interface BaseCardData {
@@ -50,8 +41,6 @@ type CardContentData = StatData | JobData | ProfileData;
 interface RotatingCardConfig extends BaseCardData {
   content: CardContentData[];
 }
-
-// --- Data ---
 
 const heroCardsData: RotatingCardConfig[] = [
   {
@@ -88,8 +77,6 @@ const heroCardsData: RotatingCardConfig[] = [
     ] as ProfileData[]
   }
 ];
-
-// --- Sub-components (Content Renderers) ---
 
 const StatContent = ({ data }: { data: StatData }) => (
   <div className="flex flex-col items-center justify-center h-full p-4 text-center">
@@ -137,25 +124,21 @@ const ProfileContent = ({ data }: { data: ProfileData }) => (
   </div>
 );
 
+// Lightweight card background — no blur filters on animated containers
 const CardBackground = () => (
   <div className="absolute inset-0 z-0 rounded-lg overflow-hidden">
     <div className="absolute inset-0 bg-linear-to-b from-slate-800/80 to-slate-900/90 mix-blend-multiply opacity-90" />
     <div className="absolute inset-0 bg-linear-to-tr from-cyan-500/10 to-blue-600/10" />
-    <div className="absolute -top-10 -left-10 w-24 h-24 bg-cyan-500/20 blur-[30px] rounded-full" />
-    <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-blue-500/20 blur-[30px] rounded-full" />
     <div className="absolute inset-0 border border-slate-600/50 rounded-lg" />
     <div className="absolute inset-0 border border-white/10 rounded-lg mix-blend-overlay" />
   </div>
 );
-
-// --- Fading Card Component (No Flip) ---
 
 const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDesktop: boolean }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Wait for page to fully paint, then stagger the rise by each card's delay
     const t = setTimeout(() => setMounted(true), 150 + config.delay * 200);
     return () => clearTimeout(t);
   }, [config.delay]);
@@ -182,11 +165,14 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
       animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 80 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Floating Animation */}
-      <motion.div
+      {/* CSS float — cheaper than Framer Motion infinite JS animation */}
+      <div
         className="w-full h-full relative"
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: config.delay * 2 }}
+        style={{
+          animation: `floatY 6000ms ease-in-out infinite`,
+          animationDelay: `${config.delay * 2}s`,
+          willChange: "transform",
+        }}
       >
         <div className="w-full h-full relative">
           <CardBackground />
@@ -205,7 +191,7 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
             </AnimatePresence>
           </div>
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 };

@@ -186,7 +186,10 @@ export default function NetworkSection() {
 
     const stars = Array.from({ length: STAR_COUNT }, () => new Star());
 
+    let isVisible = false;
+
     const animate = () => {
+      if (!isVisible) return;
       ctx.clearRect(0, 0, W, H);
       stars.forEach(s => s.update());
       ctx.shadowBlur = 0;
@@ -206,7 +209,13 @@ export default function NetworkSection() {
       stars.forEach(s => s.draw());
       animId = requestAnimationFrame(animate);
     };
-    animate();
+
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      const wasVisible = isVisible;
+      isVisible = entry.isIntersecting;
+      if (isVisible && !wasVisible) animate();
+    }, { threshold: 0 });
+    visibilityObserver.observe(container);
 
     const getRelPos = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
@@ -223,6 +232,7 @@ export default function NetworkSection() {
 
     return () => {
       cancelAnimationFrame(animId);
+      visibilityObserver.disconnect();
       container.removeEventListener("mousemove",  onMouseMove);
       container.removeEventListener("mouseleave", onMouseLeave);
       container.removeEventListener("touchmove",  onTouchMove as EventListener);
@@ -250,8 +260,8 @@ export default function NetworkSection() {
   // at screenRadius + LABEL_OFFSET px from center. Lines are short and direct.
   const smoothedAnchors = useRef<{[idx: number]: {x: number; y: number}}>({});
   const lastRevealProgress = useRef(-1);
-  // Smoothed reveal progress for buttery fade-out (never snaps to 0)
   const smoothRevealRef = useRef(0);
+  const lastLabelUpdateMs = useRef(0);
 
   useEffect(() => {
     let rafId: number;
@@ -397,11 +407,7 @@ export default function NetworkSection() {
         const smY = prev.y + (targetY - prev.y) * LERP;
         smoothedAnchors.current[e.index] = { x: smX, y: smY };
 
-        // Simple uniform fade — all labels share the same smoothed opacity
-        // This eliminates the reverse-stagger ordering bug where some labels
-        // would vanish while others stayed visible.
         const itemProgress = Math.max(0, Math.min(1, revealProgress));
-
         return {
           index: e.index,
           dotX: e.dotX, dotY: e.dotY,
@@ -412,7 +418,15 @@ export default function NetworkSection() {
         };
       });
 
-      setLabelRenders(newRenders);
+      // Skip React re-render while globe camera is moving (eliminates label jitter)
+      // Throttle to ~30fps to halve re-renders when labels are stable
+      if (!globeAnimatingRef.current) {
+        const nowMs = performance.now();
+        if (nowMs - lastLabelUpdateMs.current >= 33) {
+          lastLabelUpdateMs.current = nowMs;
+          setLabelRenders(newRenders);
+        }
+      }
       rafId = requestAnimationFrame(tick);
     };
 
@@ -635,6 +649,7 @@ export default function NetworkSection() {
         return;
       }
 
+      if (globeAnimatingRef.current) return;
       if (now - lastStepMs < STEP_COOLDOWN) return;
       lastStepMs = now;
       currentStep = next;
@@ -663,6 +678,7 @@ export default function NetworkSection() {
         window.scrollTo({ top: Math.max(0, (st?.start ?? 0) - 50), behavior: "instant" as ScrollBehavior });
         return;
       }
+      if (globeAnimatingRef.current) return;
       if (now - lastStepMs < STEP_COOLDOWN) return;
       lastStepMs = now; currentStep = next;
       animateToStep(currentStep);

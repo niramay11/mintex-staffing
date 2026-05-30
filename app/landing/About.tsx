@@ -7,7 +7,6 @@ import Mintex from "../assets/mintex-m.svg";
 import Group from "../assets/about-group.png";
 
 const About = () => {
-  // Animation variants for the text container
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -19,7 +18,6 @@ const About = () => {
     },
   };
 
-  // Variants for individual text elements
   const textItemVariants: any = {
     hidden: { opacity: 0, y: 50 },
     visible: {
@@ -29,9 +27,8 @@ const About = () => {
     },
   };
 
-  // Variants for the decorative background images
   const imageVariants: any = {
-    hidden: { opacity: 0, scale: 0.9, y: -100 }, // Changed from x to y: -100 for top entry
+    hidden: { opacity: 0, scale: 0.9, y: -100 },
     visible: (customDelay: any) => ({
       opacity: 1,
       scale: 1,
@@ -52,7 +49,7 @@ const About = () => {
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: false, amount: 0.3 }}
+        viewport={{ once: true, amount: 0.3 }}
       >
         <motion.h5
           variants={textItemVariants}
@@ -75,7 +72,7 @@ const About = () => {
           is a trusted staffing and recruitment agency with a physical presence
           in <span className="text-[#57EEFF] font-normal">Edison, New Jersey</span>,
           helping businesses nationwide find their ideal match. A wing of Mintex,
-          we’ve been catering companies grow with the right talent since 2003 bringing
+          we've been catering companies grow with the right talent since 2003 bringing
           over 20 years of experience to the world of hiring.
         </motion.p>
 
@@ -90,7 +87,7 @@ const About = () => {
         variants={imageVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: false }}
+        viewport={{ once: true }}
         className="absolute w-full h-full md:h-max md:w-[40%] left-0 bottom-0 opacity-45 md:opacity-100 md:translate-x-[75%]"
       >
         <Image
@@ -105,10 +102,10 @@ const About = () => {
       {/* Floating Group Image (Desktop Only) */}
       <motion.div
         custom={0.6}
-        // variants={imageVariants}
+        variants={imageVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: false }}
+        viewport={{ once: true }}
         className="absolute hidden md:block w-[24%] left-0 bottom-0 translate-x-[155%]"
       >
         <Image
