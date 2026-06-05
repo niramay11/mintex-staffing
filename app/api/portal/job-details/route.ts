@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/portal-auth';
 import { ceipalFetch } from '@/lib/ceipal';
+import { getJobMap } from '@/lib/ceipal-job-map';
 
 // Always hidden from clients
 const PRIVATE_FIELDS = [
@@ -20,9 +21,7 @@ export async function GET(req: NextRequest) {
   if (!jobCode) return NextResponse.json({ error: 'Missing job_code' }, { status: 400 });
 
   try {
-    // Resolve V2 ID from job_code via map
-    const mapRes = await fetch(`${new URL(req.url).origin}/api/admin/v2-job-map`);
-    const map: Record<string, string> = mapRes.ok ? await mapRes.json() : {};
+    const map  = await getJobMap();
     const v2Id = map[jobCode] ?? '';
 
     if (!v2Id) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
