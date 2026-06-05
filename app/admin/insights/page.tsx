@@ -535,24 +535,25 @@ function DetailsTab({ detail, loading, error }: { detail: JobDetail | null; load
   );
 }
 
-// ─── Pipeline bar ─────────────────────────────────────────────────────────────
+// ─── Pipeline bar (used inside submission detail modal) ───────────────────────
 function PipelineBar({ stageIdx }: { stageIdx: number }) {
   return (
     <div className="flex items-center gap-0 mt-3">
       {PIPELINE_STAGES.map((stage, i) => {
-        const isActive   = i === stageIdx;
         const isComplete = i < stageIdx;
+        const isActive   = i === stageIdx;
         const isNeg      = stageIdx === 6 && i === 6;
+        // Line connects THIS dot to the NEXT — only color if next dot is complete
+        const lineColored = i < stageIdx; // stop line AT active, not past it
         return (
           <div key={stage} className="flex-1 flex flex-col items-center gap-1">
             <div className={`h-1.5 w-full ${i === 0 ? 'rounded-l-full' : i === PIPELINE_STAGES.length - 1 ? 'rounded-r-full' : ''} transition-colors ${
-              isNeg      ? 'bg-red-500' :
-              isActive   ? 'bg-orange-400' :
-              isComplete ? 'bg-orange-600' :
+              isNeg        ? 'bg-red-500' :
+              lineColored  ? 'bg-orange-500' :
               'bg-gray-700'
             }`} />
             <span className={`text-[9px] truncate w-full text-center hidden sm:block leading-none ${
-              isActive ? 'text-orange-400' : isComplete ? 'text-orange-700' : 'text-gray-700'
+              isActive ? 'text-orange-400' : isComplete ? 'text-orange-600' : 'text-gray-700'
             }`}>{stage.split(' ')[0]}</span>
           </div>
         );
@@ -564,7 +565,7 @@ function PipelineBar({ stageIdx }: { stageIdx: number }) {
 // ─── Applicant + user enriched submission ────────────────────────────────────
 type ApplicantInfo = {
   name: string; phone: string; city: string; state: string;
-  work_authorization: string; email: string;
+  work_authorization: string; email: string; resume_token?: string;
 };
 
 // ─── CEIPAL-style pipeline dots row ──────────────────────────────────────────
@@ -576,31 +577,43 @@ function PipelineDots({ stageIdx, submittedOn }: { stageIdx: number; submittedOn
   return (
     <div className="flex items-center w-full mt-3 mb-1 relative">
       {PIPELINE_STAGES.map((stage, i) => {
-        const isComplete = i < stageIdx;
-        const isActive   = i === stageIdx;
+        const isComplete = i < stageIdx;   // fully passed stage
+        const isActive   = i === stageIdx; // current stage
         const isNeg      = stageIdx === 6 && i === 6;
+        // Line goes RIGHT from this dot to next — only color if NEXT dot is complete (i+1 <= stageIdx, i.e. i < stageIdx)
+        const lineColored = i < stageIdx;  // stops AT active dot, never past it
+
         const dotCls =
           isNeg      ? 'bg-red-500 border-red-500' :
-          isActive   ? 'bg-orange-400 border-orange-400 ring-2 ring-orange-400/30' :
-          isComplete ? 'bg-orange-600 border-orange-600' :
+          isActive   ? 'bg-orange-500 border-orange-500 ring-2 ring-orange-400/40' :
+          isComplete ? 'bg-orange-500 border-orange-500' :
           'bg-gray-700 border-gray-600';
-        const lineCls =
-          isComplete || isActive ? 'bg-orange-600' : 'bg-gray-700';
 
         return (
           <div key={stage} className="flex-1 flex flex-col items-center relative min-w-0">
-            {/* Connecting line */}
+            {/* Connecting line — starts at center of this dot, extends right */}
             {i < PIPELINE_STAGES.length - 1 && (
-              <div className={`absolute top-[7px] left-1/2 w-full h-0.5 ${lineCls} z-0`} />
+              <div className={`absolute top-[7px] left-1/2 w-full h-0.5 z-0 transition-colors ${
+                lineColored ? 'bg-orange-500' : 'bg-gray-700'
+              }`} />
             )}
-            {/* Dot */}
-            <div className={`relative z-10 w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${dotCls}`} />
-            {/* Label + date */}
-            <p className={`text-[9px] mt-1 text-center truncate w-full px-0.5 leading-tight ${isActive ? 'text-orange-400' : isComplete ? 'text-orange-700' : 'text-gray-600'}`}>
+            {/* Dot — show ✓ checkmark for completed stages */}
+            <div className={`relative z-10 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${dotCls}`}>
+              {isComplete && (
+                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            {/* Stage label */}
+            <p className={`text-[9px] mt-1 text-center truncate w-full px-0.5 leading-tight ${
+              isActive ? 'text-orange-400 font-semibold' : isComplete ? 'text-orange-600' : 'text-gray-600'
+            }`}>
               {stage.split(' ')[0]}
             </p>
+            {/* Date under active stage */}
             {isActive && submittedOn && (
-              <p className="text-[8px] text-orange-500 text-center truncate w-full px-0.5">{fmt(submittedOn)}</p>
+              <p className="text-[8px] text-orange-400 text-center truncate w-full px-0.5">{fmt(submittedOn)}</p>
             )}
           </div>
         );
@@ -644,14 +657,32 @@ function SubmissionsTab({ submissions, loading, error, onSelectSub }: {
       const map: Record<string, ApplicantInfo> = {};
       for (const r of results) {
         if (r.status === 'fulfilled' && r.value?.data) {
-          const d = r.value.data as Record<string, unknown>;
+          // CEIPAL sometimes returns array, sometimes object
+          const raw = r.value.data;
+          const d   = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+          if (!d) continue;
+
+          // CEIPAL field names confirmed from API response
+          const firstName = String(d.firstname ?? d.first_name ?? '').trim();
+          const lastName  = String(d.lastname  ?? d.last_name  ?? '').trim();
+          const fullName  = String(
+            d.consultant_name ?? d.full_name ?? d.applicant_name ??
+            (firstName || lastName ? `${firstName} ${lastName}`.trim() : '')
+          ).trim();
+
+          // Get best resume URL from documents array
+          const docs = Array.isArray(d.documents) ? d.documents as Record<string, unknown>[] : [];
+          const resumeDoc = docs.find(doc => doc.resume_visibility === 1) ?? docs[0];
+          const resumeToken = String(resumeDoc?.resume_token ?? '');
+
           map[r.value.id] = {
-            name:  String(d.full_name ?? `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim() ?? ''),
-            phone: String(d.contact_number ?? d.phone ?? d.mobile ?? ''),
+            name:  fullName,
+            phone: String(d.mobile_number ?? d.contact_number ?? d.phone ?? d.home_phone_number ?? ''),
             city:  String(d.city ?? d.current_city ?? ''),
             state: String(d.state ?? d.current_state ?? ''),
             work_authorization: String(d.work_authorization ?? d.visa_type ?? ''),
-            email: String(d.email_id ?? d.email ?? ''),
+            email: String(d.email ?? d.email_id ?? d.email_address ?? ''),
+            resume_token: resumeToken,
           };
         }
       }
@@ -748,7 +779,7 @@ function SubmissionsTab({ submissions, loading, error, onSelectSub }: {
                   {/* NAME */}
                   <div className="col-span-3">
                     <p className="text-sm font-semibold text-orange-400 group-hover:text-orange-300 transition-colors">
-                      {applicant?.name || `Applicant #${sub.applicant_id}`}
+                      {applicant?.name || `Submission #${sub.submission_id}`}
                     </p>
                     <p className="text-[10px] text-gray-500 mt-0.5">{sub.source || ''}</p>
                   </div>
@@ -800,10 +831,10 @@ function SubmissionDetailModal({ sub, applicant, onClose }: { sub: Submission; a
       .catch(() => setLoading(false));
   }, [sub.id]);
 
-  const stageIdx  = mapStatusToStageIdx(sub.submission_status || sub.pipeline_status || '');
-  const resumeUrl = String(detail?.resume ?? sub.resume ?? '');
-  const docs      = (Array.isArray(detail?.Documents) ? detail!.Documents : []) as Record<string, unknown>[];
-  const candName  = applicant?.name || `Applicant #${sub.applicant_id}`;
+  const stageIdx    = mapStatusToStageIdx(sub.submission_status || sub.pipeline_status || '');
+  const resumeToken = applicant?.resume_token ?? String(detail?.resume ?? sub.resume ?? '');
+  const docs        = (Array.isArray(detail?.Documents) ? detail!.Documents : []) as Record<string, unknown>[];
+  const candName    = applicant?.name || `Submission #${sub.submission_id}`;
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
@@ -850,10 +881,10 @@ function SubmissionDetailModal({ sub, applicant, onClose }: { sub: Submission; a
               </div>
 
               {/* Resume */}
-              {resumeUrl && (
+              {resumeToken && (
                 <div>
                   <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Resume</p>
-                  <a href={resumeUrl} target="_blank" rel="noopener noreferrer"
+                  <a href={`https://api.ceipal.com/download/${resumeToken}`} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition-colors">
                     ↓ Download Resume
                   </a>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import Logo from "../../../public/logo.svg";
@@ -164,6 +164,296 @@ function LoginForm({ onLogin }: { onLogin: (client: ClientInfo) => void }) {
     );
 }
 
+// ─── Pipeline helpers ─────────────────────────────────────────────────────────
+const PIPELINE_STAGES = ['Pipeline','Submission','Client Submission','Interview','Confirmation','Placement','Not Joined'] as const;
+
+function mapStageIdx(status: string): number {
+    const s = (status ?? '').toLowerCase();
+    if (s.includes('not joined'))                               return 6;
+    if (s.includes('placement') || s.includes('placed'))       return 5;
+    if (s.includes('confirmation') || s.includes('confirmed')) return 4;
+    if (s.includes('interview'))                               return 3;
+    if (s.includes('client submission') || s.includes('waiting')) return 2;
+    if (s.includes('submission') || s.includes('submitted') || s.includes('approved')) return 1;
+    return 0;
+}
+
+type Submission = { id: string; submission_id: number; submission_status: string; pipeline_status: string; source: string; submitted_on: string; employment_type?: string; tax_term?: string; pay_rate?: string | null; applicant_id?: number; };
+
+// ─── Job Detail Modal ─────────────────────────────────────────────────────────
+function JobDetailModal({ job, permissions, onClose }: { job: Job; permissions: Record<string, boolean>; onClose: () => void }) {
+    const [activeTab, setActiveTab] = useState<'snapshot' | 'description' | 'skills' | 'submissions'>('snapshot');
+    const [detail, setDetail]       = useState<Record<string, unknown> | null>(null);
+    const [submissions, setSubs]    = useState<Submission[]>([]);
+    const [subsLoading, setSL]      = useState(false);
+    const [stageFilter, setStageFilter] = useState('all');
+
+    useEffect(() => {
+        const code = job.job_code;
+        if (!code) return;
+        // Fetch full job details
+        fetch(`/api/portal/job-details?job_code=${encodeURIComponent(code)}`)
+            .then(r => r.ok ? r.json() : null).then(d => setDetail(d));
+        // Fetch submissions
+        setSL(true);
+        fetch(`/api/portal/job-submissions?job_code=${encodeURIComponent(code)}`)
+            .then(r => r.ok ? r.json() : []).then(d => { setSubs(Array.isArray(d) ? d : []); setSL(false); })
+            .catch(() => setSL(false));
+    }, [job.job_code]);
+
+    const desc   = String(detail?.requisition_description ?? detail?.public_job_desc ?? job.job_description ?? '');
+    const skills = String(detail?.skills ?? job.primary_skills ?? '');
+    const hasDesc   = !!desc && permissions.show_job_description !== false;
+    const hasSkills = !!skills && permissions.show_required_skills !== false;
+
+    const stageCounts = PIPELINE_STAGES.reduce<Record<string, number>>((acc, s) => {
+        acc[s] = submissions.filter(sub => PIPELINE_STAGES[mapStageIdx(sub.submission_status || sub.pipeline_status)] === s).length;
+        return acc;
+    }, {});
+
+    const filteredSubs = stageFilter === 'all'
+        ? submissions
+        : submissions.filter(sub => PIPELINE_STAGES[mapStageIdx(sub.submission_status || sub.pipeline_status)] === stageFilter);
+
+    const s = STATUS_DARK[job.job_status] ?? { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', color: 'rgba(200,215,235,0.7)', dot: 'rgba(255,255,255,0.4)' };
+    const tabKeys = ['snapshot', ...(hasDesc ? ['description'] : []), ...(hasSkills ? ['skills'] : []), 'submissions'] as const;
+    const tabLabels: Record<string, string> = { snapshot: 'Snapshot', description: 'Description', skills: 'Skills', submissions: `Submissions (${submissions.length})` };
+
+    const fmt = (d: string) => { try { return new Date(d).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' }); } catch { return d; } };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto py-6 px-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            onClick={e => e.target === e.currentTarget && onClose()}>
+            <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full max-w-4xl rounded-2xl overflow-hidden"
+                style={{ background: 'linear-gradient(160deg,#07122a 0%,#06091e 100%)', border: '1px solid rgba(87,238,255,0.15)', boxShadow: `0 0 60px rgba(87,238,255,0.07)` }}>
+
+                {/* Top accent line */}
+                <div className="h-px w-full" style={{ background: `linear-gradient(90deg,transparent,${C.cyan}55,transparent)` }} />
+
+                {/* Header */}
+                <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                                <span className="font-mono text-xs px-2.5 py-1 rounded-md" style={{ background: 'rgba(87,238,255,0.08)', border: `1px solid ${C.cyanBdr}`, color: C.cyan, fontFamily: GF }}>
+                                    {job.job_code}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontFamily: GF }}>
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />{job.job_status}
+                                </span>
+                            </div>
+                            <h2 className="text-2xl font-black text-white truncate" style={{ fontFamily: GF }}>{job.job_title}</h2>
+                            <p className="text-sm mt-1" style={{ color: 'rgba(170,185,210,0.5)', fontFamily: GF }}>
+                                {[job.city, job.states, job.country].filter(Boolean).join(', ')}
+                            </p>
+                        </div>
+                        <button onClick={onClose} className="text-2xl leading-none transition-colors" style={{ color: 'rgba(170,185,210,0.4)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(170,185,210,0.4)')}>
+                            &times;
+                        </button>
+                    </div>
+
+                    {/* Quick stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        {[
+                            { label: 'Positions',  value: job.number_of_positions },
+                            { label: 'Type',       value: job.job_type },
+                            { label: 'Remote',     value: job.remote_job || detail?.remote_opportunities },
+                            { label: 'Industry',   value: job.industry  || detail?.industry },
+                        ].map(({ label, value }) => (
+                            <div key={label}>
+                                <p className="text-[10px] uppercase tracking-wider font-bold mb-0.5" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{label}</p>
+                                <p className="text-sm font-semibold text-white" style={{ fontFamily: GF }}>{String(value || '—')}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b px-6 overflow-x-auto gap-1" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    {tabKeys.map(key => (
+                        <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
+                            className="px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap relative"
+                            style={{ color: activeTab === key ? C.cyan : 'rgba(170,185,210,0.45)', fontFamily: GF, borderBottom: activeTab === key ? `2px solid ${C.cyan}` : '2px solid transparent', marginBottom: -1 }}>
+                            {tabLabels[key]}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Tab content */}
+                <div className="p-6 min-h-[260px]">
+
+                    {/* Snapshot */}
+                    {activeTab === 'snapshot' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {[
+                                { label: 'Start Date',   val: job.job_start_date || detail?.job_start_date },
+                                { label: 'End Date',     val: job.job_end_date   || detail?.job_end_date },
+                                { label: 'Duration',     val: job.duration       || detail?.duration },
+                                { label: 'Experience',   val: job.experience     || detail?.experience },
+                                { label: 'Work Auth',    val: job.work_authorization || detail?.work_authorization },
+                                { label: 'Tax Terms',    val: job.tax_terms      || detail?.tax_terms },
+                                { label: 'Closing Date', val: detail?.closing_date },
+                                ...(permissions.show_bill_rate ? [{ label: 'Bill Rate', val: job.client_bill_rate___salary }] : []),
+                            ].filter(x => x.val).map(({ label, val }) => (
+                                <div key={label} className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <p className="text-[10px] uppercase tracking-wider font-bold mb-0.5" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{label}</p>
+                                    <p className="text-sm" style={{ color: 'rgba(200,215,235,0.85)', fontFamily: GF }}>{String(val)}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Description */}
+                    {activeTab === 'description' && (
+                        <div className="text-sm leading-relaxed max-h-[55vh] overflow-y-auto pr-2"
+                            style={{ color: 'rgba(190,205,225,0.75)', fontFamily: GF }}
+                            dangerouslySetInnerHTML={{ __html: desc }} />
+                    )}
+
+                    {/* Skills */}
+                    {activeTab === 'skills' && (
+                        <div className="flex flex-wrap gap-2">
+                            {skills.split(/,\s*/).filter(Boolean).map(sk => (
+                                <span key={sk} className="px-3 py-1.5 rounded-full text-sm font-semibold"
+                                    style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText, fontFamily: GF }}>
+                                    {sk.trim()}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Submissions */}
+                    {activeTab === 'submissions' && (
+                        <div>
+                            {subsLoading ? (
+                                <div className="flex items-center justify-center gap-3 py-10" style={{ color: 'rgba(170,185,210,0.4)' }}>
+                                    <div className="w-5 h-5 rounded-full animate-spin" style={{ border: `1.5px solid transparent`, borderTopColor: C.cyan }} />
+                                    <span className="text-xs tracking-widest uppercase" style={{ fontFamily: GF }}>Loading submissions…</span>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Stage filter */}
+                                    <div className="flex flex-wrap gap-1.5 mb-5">
+                                        <button onClick={() => setStageFilter('all')}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                            style={{ background: stageFilter === 'all' ? C.cyanDim : 'rgba(255,255,255,0.04)', border: `1px solid ${stageFilter === 'all' ? C.cyanBdr : 'rgba(255,255,255,0.08)'}`, color: stageFilter === 'all' ? C.cyan : 'rgba(170,185,210,0.5)', fontFamily: GF }}>
+                                            All {submissions.length}
+                                        </button>
+                                        {PIPELINE_STAGES.map(stage => (stageCounts[stage] ?? 0) > 0 && (
+                                            <button key={stage} onClick={() => setStageFilter(stage)}
+                                                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                                style={{ background: stageFilter === stage ? C.cyanDim : 'rgba(255,255,255,0.04)', border: `1px solid ${stageFilter === stage ? C.cyanBdr : 'rgba(255,255,255,0.08)'}`, color: stageFilter === stage ? C.cyan : 'rgba(170,185,210,0.5)', fontFamily: GF }}>
+                                                {stage} {stageCounts[stage]}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {filteredSubs.length === 0 ? (
+                                        <div className="py-12 text-center">
+                                            <p className="text-sm" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>
+                                                No submissions{stageFilter !== 'all' ? ` in "${stageFilter}"` : ''} yet.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            {filteredSubs.map((sub, i) => {
+                                                const stageIdx    = mapStageIdx(sub.submission_status || sub.pipeline_status || '');
+                                                const statusLabel = sub.submission_status || sub.pipeline_status || 'Unknown';
+                                                const subOn = sub.submitted_on ? fmt(sub.submitted_on) : '';
+
+                                                return (
+                                                    <div key={sub.id ?? i} className="py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                        {/* Row */}
+                                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-white" style={{ fontFamily: GF }}>
+                                                                    {(sub as Record<string,unknown>).candidate_name
+                                                                      ? String((sub as Record<string,unknown>).candidate_name)
+                                                                      : `Submission #${sub.submission_id}`}
+                                                                </p>
+                                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>
+                                                                    {sub.source ? `Source: ${sub.source}` : ''}
+                                                                    {subOn ? ` · ${subOn}` : ''}
+                                                                </p>
+                                                            </div>
+                                                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                                                                style={{
+                                                                    background: stageIdx >= 4 ? 'rgba(87,238,255,0.08)' : stageIdx >= 2 ? 'rgba(251,191,36,0.1)' : 'rgba(16,185,129,0.08)',
+                                                                    border: stageIdx >= 4 ? `1px solid ${C.cyanBdr}` : stageIdx >= 2 ? '1px solid rgba(251,191,36,0.28)' : '1px solid rgba(16,185,129,0.3)',
+                                                                    color: stageIdx >= 4 ? C.cyanText : stageIdx >= 2 ? '#FCD34D' : '#6EE7B7',
+                                                                    fontFamily: GF,
+                                                                }}>
+                                                                {statusLabel}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Pipeline dots */}
+                                                        <div className="flex items-center w-full">
+                                                            {PIPELINE_STAGES.map((stage, idx) => {
+                                                                const done   = idx < stageIdx;
+                                                                const active = idx === stageIdx;
+                                                                // Line colors only up to (not including) active dot
+                                                                const lineColored = idx < stageIdx;
+                                                                return (
+                                                                    <div key={stage} className="flex-1 flex flex-col items-center relative min-w-0">
+                                                                        {idx < PIPELINE_STAGES.length - 1 && (
+                                                                            <div className="absolute top-[7px] left-1/2 w-full h-0.5 z-0" style={{ background: lineColored ? C.cyan + '99' : 'rgba(255,255,255,0.06)' }} />
+                                                                        )}
+                                                                        {/* Dot with ✓ for completed */}
+                                                                        <div className="relative z-10 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center"
+                                                                            style={{ background: active ? C.cyan : done ? C.cyan + '99' : 'rgba(255,255,255,0.08)', borderColor: active ? C.cyan : done ? C.cyan : 'rgba(255,255,255,0.15)', boxShadow: active ? `0 0 8px ${C.cyan}55` : 'none' }}>
+                                                                            {done && (
+                                                                                <svg className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth={3} viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-[9px] mt-1 text-center truncate w-full px-0.5" style={{ color: active ? C.cyanText : done ? C.cyan + 'aa' : 'rgba(170,185,210,0.2)', fontFamily: GF, fontWeight: active ? 600 : 400 }}>
+                                                                            {stage.split(' ')[0]}
+                                                                        </p>
+                                                                        {active && subOn && <p className="text-[8px] text-center truncate w-full" style={{ color: C.cyanText, fontFamily: GF }}>{subOn}</p>}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Meta */}
+                                                        {(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
+                                                            <div className="flex flex-wrap gap-4 mt-2">
+                                                                {sub.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{sub.employment_type}</span></span>}
+                                                                {sub.tax_term && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Tax: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{sub.tax_term}</span></span>}
+                                                                {permissions.show_pay_rate && sub.pay_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: C.cyan }}>{sub.pay_rate}</span></span>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-6 pb-6 flex justify-end" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <button onClick={onClose} className="mt-4 px-5 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(170,185,210,0.6)', fontFamily: GF }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
+                        Close
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 // ─── Main Portal Dashboard ────────────────────────────────────────────────────
 export default function PortalClient() {
     const [authChecked, setAuthChecked] = useState(false);
@@ -173,7 +463,7 @@ export default function PortalClient() {
     const [error, setError]             = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [expandedJob, setExpandedJob] = useState<string | null>(null);
+    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [scrolled, setScrolled]       = useState(false);
 
     useEffect(() => {
@@ -248,6 +538,7 @@ export default function PortalClient() {
     };
 
     return (
+        <>
         <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #06091e 0%, #07122a 45%, #030e18 100%)' }}>
             <div className="fixed inset-0 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(87,238,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(87,238,255,0.03) 1px, transparent 1px)`, backgroundSize: '72px 72px', opacity: 0.5 }} />
             <div className="fixed top-0 left-0 w-[600px] h-[400px] pointer-events-none" style={{ background: 'radial-gradient(ellipse at 30% 40%, rgba(87,238,255,0.04) 0%, transparent 60%)', filter: 'blur(60px)' }} />
@@ -392,80 +683,26 @@ export default function PortalClient() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredJobs.map((job, index) => {
-                                        const isExpanded = expandedJob === job.job_code;
-                                        return (
-                                            <React.Fragment key={job.job_code || index}>
-                                                <tr onClick={() => setExpandedJob(isExpanded ? null : job.job_code)}
-                                                    className="cursor-pointer transition-all duration-150"
-                                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.background = isExpanded ? 'rgba(87,238,255,0.04)' : 'transparent')}>
-                                                    <td className="px-4 py-3 text-xs" style={{ color: 'rgba(170,185,210,0.28)', fontFamily: GF }}>{index + 1}</td>
-                                                    {TABLE_COLUMNS.map(col => (
-                                                        <td key={col.key} className="px-3 py-3 text-xs max-w-[180px] truncate" style={{ fontFamily: GF }}>{renderCell(job, col.key)}</td>
-                                                    ))}
-                                                    <td className="px-3 py-3">
-                                                        <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: isExpanded ? C.cyanDim : 'rgba(255,255,255,0.04)', border: `1px solid ${isExpanded ? C.cyanBdr : 'rgba(255,255,255,0.08)'}` }}>
-                                                            <svg className="w-3 h-3 transition-transform duration-200" style={{ color: isExpanded ? C.cyan : 'rgba(170,185,210,0.3)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                            </svg>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <AnimatePresence>
-                                                    {isExpanded && (
-                                                        <tr>
-                                                            <td colSpan={TABLE_COLUMNS.length + 2} style={{ background: 'rgba(87,238,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: 0 }}>
-                                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }} style={{ overflow: 'hidden' }}>
-                                                                    <div className="px-6 py-5">
-                                                                        <div className="flex flex-wrap gap-4 mb-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                                            {[
-                                                                                { label: 'Department', val: job.department }, { label: 'Industry', val: job.industry },
-                                                                                { label: 'Degree', val: job.degree }, { label: 'Tax Terms', val: job.tax_terms },
-                                                                                { label: 'Work Auth', val: job.work_authorization }, { label: 'Interview', val: job.interview_mode },
-                                                                                { label: 'Clearance', val: job.clearance }, { label: 'Duration', val: job.duration },
-                                                                                { label: 'Hrs/Week', val: job.required_hours_week },
-                                                                            ].filter(x => x.val).map(({ label, val }) => (
-                                                                                <div key={label}>
-                                                                                    <p className="text-[9px] uppercase tracking-wider font-bold mb-0.5" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{label}</p>
-                                                                                    <p className="text-xs font-semibold" style={{ color: 'rgba(200,215,235,0.75)', fontFamily: GF }}>{val}</p>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {job.secondary_skills && (
-                                                                            <div className="mb-4">
-                                                                                <p className="text-[9px] uppercase tracking-wider font-bold mb-2" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>Secondary Skills</p>
-                                                                                <div className="flex flex-wrap gap-1.5">
-                                                                                    {job.secondary_skills.split(',').map((s: string, i: number) => (
-                                                                                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(180,195,220,0.6)', fontFamily: GF }}>{s.trim()}</span>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                                            {job.job_description && (
-                                                                                <div>
-                                                                                    <p className="text-[9px] uppercase tracking-wider font-bold mb-2" style={{ color: C.cyanText, fontFamily: GF }}>Job Description</p>
-                                                                                    <div className="text-xs max-h-44 overflow-y-auto pr-2 leading-relaxed" style={{ color: 'rgba(190,205,225,0.65)', fontFamily: GF }} dangerouslySetInnerHTML={{ __html: job.job_description }} />
-                                                                                </div>
-                                                                            )}
-                                                                            {job.public_job_description && (
-                                                                                <div>
-                                                                                    <p className="text-[9px] uppercase tracking-wider font-bold mb-2" style={{ color: C.cyanText, fontFamily: GF }}>Public Description</p>
-                                                                                    <div className="text-xs max-h-44 overflow-y-auto pr-2 leading-relaxed" style={{ color: 'rgba(190,205,225,0.65)', fontFamily: GF }} dangerouslySetInnerHTML={{ __html: job.public_job_description }} />
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </motion.div>
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </AnimatePresence>
-                                            </React.Fragment>
-                                        );
-                                    })}
+                                    {filteredJobs.map((job, index) => (
+                                        <tr key={job.job_code || index}
+                                            className="cursor-pointer transition-all duration-150"
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                            onClick={() => setSelectedJob(job)}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(87,238,255,0.03)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                            <td className="px-4 py-3 text-xs" style={{ color: 'rgba(170,185,210,0.28)', fontFamily: GF }}>{index + 1}</td>
+                                            {TABLE_COLUMNS.map(col => (
+                                                <td key={col.key} className="px-3 py-3 text-xs max-w-[180px] truncate" style={{ fontFamily: GF }}>{renderCell(job, col.key)}</td>
+                                            ))}
+                                            <td className="px-3 py-3">
+                                                <button onClick={e => { e.stopPropagation(); setSelectedJob(job); }}
+                                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                                                    style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyan, fontFamily: GF }}>
+                                                    View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -481,5 +718,13 @@ export default function PortalClient() {
                 )}
             </div>
         </div>
+        {selectedJob && (
+            <JobDetailModal
+                job={selectedJob}
+                permissions={client.permissions ?? {}}
+                onClose={() => setSelectedJob(null)}
+            />
+        )}
+        </>
     );
 }
