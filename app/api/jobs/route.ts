@@ -43,26 +43,36 @@ function normalise(j: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function fetchPage(page: number): Promise<Record<string, unknown>[]> {
+type PageResult = { results: Record<string, unknown>[]; next: string | null; count: number };
+
+async function fetchPage(page: number): Promise<PageResult> {
   const url = `${V2_JOBS_URL}?paging_length=${PAGE_SIZE}&page=${page}`;
   const res = await ceipalFetch(url);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error(`[jobs] CEIPAL page ${page} error ${res.status}:`, body);
-    return [];
+    return { results: [], next: null, count: 0 };
   }
   const data = await res.json();
-  return Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+  const results: Record<string, unknown>[] = Array.isArray(data?.results)
+    ? data.results
+    : Array.isArray(data) ? data : [];
+  return {
+    results,
+    next:  data?.next  ?? null,
+    count: data?.count ?? 0,
+  };
 }
 
 async function fetchAllJobs(): Promise<unknown[]> {
   const all: unknown[] = [];
 
-  for (let page = 1; page <= 100; page++) {
-    const results = await fetchPage(page);
+  for (let page = 1; page <= 200; page++) {
+    const { results, next } = await fetchPage(page);
     if (results.length === 0) break;
     all.push(...results.map(normalise));
-    if (results.length < PAGE_SIZE) break;
+    // Stop only when CEIPAL says there is no next page
+    if (!next) break;
   }
 
   // Keep only JPC jobs, deduplicate, sort newest first
