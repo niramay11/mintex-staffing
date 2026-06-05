@@ -22,28 +22,14 @@ async function fetchPage(page: number): Promise<unknown[]> {
 }
 
 async function fetchAllJobs(): Promise<unknown[]> {
-  // Fetch page 1 first
-  const first = await fetchPage(1);
-  if (first.length === 0) return [];
+  const all: unknown[] = [];
 
-  // If page 1 is full, probe ahead in parallel batches
-  const all = [...first];
-
-  if (first.length === PAGE_SIZE) {
-    // Fetch pages 2-50 in parallel batches of 10
-    for (let batch = 0; batch < MAX_PAGES / 10; batch++) {
-      const startPage = 2 + batch * 10;
-      const pages = Array.from({ length: 10 }, (_, i) => startPage + i);
-      const results = await Promise.all(pages.map(fetchPage));
-
-      let done = false;
-      for (const pageResults of results) {
-        if (pageResults.length === 0) { done = true; break; }
-        all.push(...pageResults);
-        if (pageResults.length < PAGE_SIZE) { done = true; break; }
-      }
-      if (done) break;
-    }
+  // Fetch pages sequentially to avoid rate-limit terminations from CEIPAL
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const results = await fetchPage(page);
+    if (results.length === 0) break;
+    all.push(...results);
+    if (results.length < PAGE_SIZE) break; // last page
   }
 
   // Keep only real JPC jobs (filter out VJ / vendor jobs)

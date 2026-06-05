@@ -8,11 +8,9 @@ const AUTH_URL_V1 = 'https://api.ceipal.com/v1/createAuthtoken/';
 const AUTH_URL_V2 = 'https://api.ceipal.com/v2/createAuthtoken/';
 
 // ─── Data Endpoints ───────────────────────────────────────────────────────────
-// API 1 — Custom Jobs Report (Client Portal)
 export const CEIPAL_JOBS_URL =
   'https://api.ceipal.com/getCustomJobPostingDetails/Z3RkUkt2OXZJVld2MjFpOVRSTXoxZz09/afddc10aa5424b2974b109624f0ca710/';
 
-// API 2 — Custom Placements Report (Candidate List)
 export const CEIPAL_PLACEMENTS_URL =
   'https://api.ceipal.com/v2/getCustomPlacementDetails/VnllY0Q0TTRBbnp3dGJYYVZzZUkzdz09/fbcfaa69a0dcc8e55e39edfa680c36a9/';
 
@@ -27,22 +25,33 @@ function parseXmlToken(xml: string): string {
   return m[1];
 }
 
+// Fetch with a per-request timeout so hung connections fail fast
+function fetchWithTimeout(url: string, options: RequestInit, ms = 20_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function fetchToken(authUrl: string): Promise<string> {
   if (!API_KEY) throw new Error('CEIPAL_API_KEY env var is missing');
 
-  const res = await fetch(authUrl, {
+  const res = await fetchWithTimeout(authUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: EMAIL, password: PASSWORD, api_key: API_KEY, json: 1 }),
-  });
+  }, 15_000);
 
-  if (!res.ok) throw new Error(`CEIPAL auth failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`CEIPAL auth failed: ${res.status} — ${body}`);
+  }
   const text = await res.text();
 
-  // CEIPAL returns XML or JSON depending on the json:1 param
   try {
     const json = JSON.parse(text);
     if (json?.access_token) return json.access_token;
+    if (json?.token)        return json.token;
   } catch {
     // fall through to XML parse
   }
@@ -51,7 +60,7 @@ async function fetchToken(authUrl: string): Promise<string> {
 
 // ─── Public token getters ─────────────────────────────────────────────────────
 export async function getCeipalToken(): Promise<string> {
-  const BUFFER = 5 * 60 * 1000; // refresh 5 min before expiry
+  const BUFFER = 5 * 60 * 1000;
   if (cacheV1 && Date.now() < cacheV1.expiresAt - BUFFER) return cacheV1.token;
   const token = await fetchToken(AUTH_URL_V1);
   cacheV1 = { token, expiresAt: Date.now() + 50 * 60 * 1000 };
@@ -69,16 +78,15 @@ export async function getCeipalTokenV2(): Promise<string> {
 // ─── Authenticated fetch helpers ──────────────────────────────────────────────
 async function doFetch(url: string, getToken: () => Promise<string>): Promise<Response> {
   let token = await getToken();
-  let res = await fetch(url, {
+  let res = await fetchWithTimeout(url, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
 
   if (res.status === 401 || res.status === 403) {
-    // Invalidate cache and retry once
     cacheV1 = null;
     cacheV2 = null;
     token = await getToken();
-    res = await fetch(url, {
+    res = await fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
   }

@@ -335,61 +335,682 @@ function JobsTab({ password: _ }: { password: string }) {
   );
 }
 
-function JobDetailModal({ job, onClose }: { job: CeipalJob; onClose: () => void }) {
-  const fields: [string, string][] = [
-    ["Job Code", "job_code"], ["Job Title", "job_title"], ["Client", "client"],
-    ["End Client", "end_client"], ["Client Manager", "client_manager"],
-    ["Job Type", "job_type"], ["Job Status", "job_status"],
-    ["City", "city"], ["State", "states"], ["Country", "country"], ["Zip", "zip_code"],
-    ["Start Date", "job_start_date"], ["End Date", "job_end_date"],
-    ["Positions", "number_of_positions"], ["Duration", "duration"],
-    ["Work Auth", "work_authorization"], ["Tax Terms", "tax_terms"],
-    ["Pay Rate", "pay_rate___salary"], ["Bill Rate", "client_bill_rate___salary"],
-    ["Primary Skills", "primary_skills"], ["Secondary Skills", "secondary_skills"],
-    ["Experience", "experience"], ["Degree", "degree"],
-    ["Remote", "remote_job"], ["Priority", "priority"],
-    ["Sales Manager", "sales_manager"], ["Recruiter", "primary_recruiter"],
-  ];
+// ─── Pipeline helpers ─────────────────────────────────────────────────────────
+const PIPELINE_STAGES = [
+  'Pipeline', 'Submission', 'Client Submission',
+  'Interview', 'Confirmation', 'Placement', 'Not Joined',
+] as const;
+type PipelineStage = typeof PIPELINE_STAGES[number];
+
+function mapStatusToStageIdx(status: string): number {
+  const s = (status ?? '').toLowerCase();
+  if (s.includes('not joined'))                                          return 6;
+  if (s.includes('placement') || s.includes('placed'))                  return 5;
+  if (s.includes('confirmation') || s.includes('confirmed'))            return 4;
+  if (s.includes('interview'))                                          return 3;
+  if (s.includes('client submission') || s.includes('client submitted')
+    || s.includes('waiting for evaluation'))                            return 2;
+  if (s.includes('submission') || s.includes('submitted')
+    || s.includes('approved') || s.includes('internal'))                return 1;
+  return 0;
+}
+
+type JobDetail  = Record<string, unknown>;
+type Submission = {
+  id: string; submission_id: number; submission_status: string;
+  pipeline_status: string; source: string; submitted_on: string;
+  modified: string; tax_term: string; employment_type: string;
+  pay_rate: string | null; resume?: string; applicant_id: number;
+  job_seeker_id: string; submitted_by?: string; Documents?: unknown[];
+};
+
+// ─── Shared sub-components ───────────────────────────────────────────────────
+function QuickStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-sm text-white font-medium mt-0.5 truncate">{value || '—'}</p>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-gray-800/60 rounded-xl p-3 min-w-0">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{label}</p>
+      <p className="text-sm text-gray-200 break-words">{value || '—'}</p>
+    </div>
+  );
+}
+
+function ModalSpinner({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 py-10 text-gray-400 justify-center">
+      <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm">{label}</span>
+    </div>
+  );
+}
+
+// ─── Snapshot tab ─────────────────────────────────────────────────────────────
+function SnapshotTab({ job, detail, loading, error }: {
+  job: CeipalJob; detail: JobDetail | null; loading: boolean; error: string;
+}) {
+  const desc = String(detail?.requisition_description ?? job.job_description ?? '');
+  const skills = String(detail?.skills ?? job.primary_skills ?? '');
+  const payRates = Array.isArray(detail?.pay_rates) ? (detail.pay_rates as Record<string, unknown>[]) : [];
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center overflow-y-auto py-8 px-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-3xl">
-        <div className="flex items-start justify-between p-6 border-b border-gray-800">
-          <div>
-            <h3 className="text-xl font-bold text-white">{String(job.job_title ?? "Job Detail")}</h3>
-            <p className="text-orange-400 font-mono text-sm mt-1">{String(job.job_code ?? "")}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+    <div className="space-y-6">
+      {/* Job Description */}
+      {desc ? (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Job Description</h4>
+          <div className="bg-gray-800/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed max-h-52 overflow-y-auto prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: desc }} />
         </div>
+      ) : loading ? null : (
+        <div className="bg-gray-800/30 rounded-xl p-4 text-sm text-gray-500 italic">No job description available.</div>
+      )}
 
-        {!!job.job_description && (
-          <div className="p-6 border-b border-gray-800">
-            <h4 className="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wide">Job Description</h4>
-            <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto"
-              dangerouslySetInnerHTML={{ __html: String(job.job_description) }} />
-          </div>
-        )}
-
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-          {fields.map(([label, key]) =>
-            job[key] ? (
-              <div key={key}>
-                <span className="text-xs text-gray-500 block">{label}</span>
-                <span className="text-sm text-gray-200">{String(job[key])}</span>
+      {/* Pay Rates */}
+      {payRates.length > 0 && (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Pay Rates</h4>
+          <div className="flex flex-wrap gap-2">
+            {payRates.map((pr, i) => (
+              <div key={i} className="bg-gray-800/60 border border-gray-700 rounded-xl px-4 py-2.5 flex items-center gap-3">
+                <span className="text-orange-400 font-bold text-sm">{String(pr.pay_rate ?? '—')}</span>
+                <span className="text-gray-400 text-xs">{String(pr.pay_rate_currency ?? '')} / {String(pr.pay_rate_pay_frequency_type ?? '')}</span>
+                {!!pr.pay_rate_employment_type && (
+                  <span className="px-2 py-0.5 rounded-full bg-gray-700 text-gray-300 text-[10px]">{String(pr.pay_rate_employment_type)}</span>
+                )}
               </div>
-            ) : null
-          )}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Overview grid */}
+      <div>
+        <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Overview</h4>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <InfoCard label="Job Type"    value={String(job.job_type ?? detail?.employment_type ?? '')} />
+          <InfoCard label="Duration"    value={String(job.duration ?? detail?.duration ?? '')} />
+          <InfoCard label="Experience"  value={String(job.experience ?? detail?.experience ?? '')} />
+          <InfoCard label="Work Auth"   value={String(job.work_authorization ?? detail?.work_authorization ?? '')} />
+          <InfoCard label="Tax Terms"   value={String(job.tax_terms ?? detail?.tax_terms ?? '')} />
+          <InfoCard label="Remote"      value={String(job.remote_job ?? detail?.remote_opportunities ?? '')} />
+          <InfoCard label="Start Date"  value={String(job.job_start_date ?? detail?.job_start_date ?? '')} />
+          <InfoCard label="End Date"    value={String(job.job_end_date ?? detail?.job_end_date ?? '')} />
+          <InfoCard label="Closing Date" value={String(detail?.closing_date ?? '')} />
+          <InfoCard label="Client"      value={String(job.client ?? '')} />
+          <InfoCard label="End Client"  value={String(job.end_client ?? '')} />
+          <InfoCard label="Priority"    value={String(job.priority ?? '')} />
+        </div>
+      </div>
+
+      {/* Skills */}
+      {skills && (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Skills</h4>
+          <div className="flex flex-wrap gap-2">
+            {skills.split(/,\s*/).filter(Boolean).map(s => (
+              <span key={s} className="px-2.5 py-1 rounded-full bg-orange-950/60 text-orange-300 text-xs border border-orange-800/40">{s.trim()}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading && <ModalSpinner label="Loading full details…" />}
+      {error   && <p className="text-red-400 text-sm">{error}</p>}
+    </div>
+  );
+}
+
+// ─── Details tab ──────────────────────────────────────────────────────────────
+function DetailsTab({ detail, loading, error }: { detail: JobDetail | null; loading: boolean; error: string }) {
+  if (loading) return <ModalSpinner label="Loading job details…" />;
+  if (error)   return <p className="text-red-400">{error}</p>;
+  if (!detail) return <p className="text-gray-500 text-sm">No additional details available.</p>;
+
+  return (
+    <div className="space-y-6">
+      {/* Contact Person */}
+      {!!detail.contact_person && (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact Person</h4>
+          <div className="bg-gray-800/50 rounded-xl p-4 text-sm text-gray-300"
+            dangerouslySetInnerHTML={{ __html: String(detail.contact_person) }} />
+        </div>
+      )}
+
+      {/* Public JD */}
+      {!!detail.public_job_desc && (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Public Job Description</h4>
+          <div className="bg-gray-800/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed max-h-44 overflow-y-auto">
+            {String(detail.public_job_desc)}
+          </div>
+        </div>
+      )}
+
+      {/* Detail grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <InfoCard label="Department"   value={String(detail.department   ?? '')} />
+        <InfoCard label="Business Unit" value={String(detail.business_unit_id ?? '')} />
+        <InfoCard label="Industry"     value={String(detail.industry     ?? '')} />
+        <InfoCard label="Currency"     value={String(detail.currency     ?? '')} />
+        <InfoCard label="Created"      value={String(detail.created      ?? '')} />
+        <InfoCard label="Modified"     value={String(detail.modified     ?? '')} />
+        <InfoCard label="Min Exp."     value={String(detail.min_experience ?? '')} />
+        <InfoCard label="Postal Code"  value={String(detail.postal_code  ?? '')} />
+        <InfoCard label="Posted"       value={String(detail.posted       ?? '')} />
+        <InfoCard label="Public Title" value={String(detail.public_job_title ?? '')} />
+        <InfoCard label="Remote Opps." value={String(detail.remote_opportunities ?? '')} />
+        <InfoCard label="Positions"    value={String(detail.number_of_positions ?? '')} />
+      </div>
+
+      {/* Apply links */}
+      {(!!detail.apply_job || !!detail.apply_job_without_registration) && (
+        <div>
+          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Apply Links</h4>
+          <div className="flex flex-wrap gap-3">
+            {!!detail.apply_job && (
+              <a href={String(detail.apply_job)} target="_blank" rel="noopener noreferrer"
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition-colors">
+                Apply (with registration)
+              </a>
+            )}
+            {!!detail.apply_job_without_registration && (
+              <a href={String(detail.apply_job_without_registration)} target="_blank" rel="noopener noreferrer"
+                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition-colors">
+                Apply (no registration)
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Pipeline bar ─────────────────────────────────────────────────────────────
+function PipelineBar({ stageIdx }: { stageIdx: number }) {
+  return (
+    <div className="flex items-center gap-0 mt-3">
+      {PIPELINE_STAGES.map((stage, i) => {
+        const isActive   = i === stageIdx;
+        const isComplete = i < stageIdx;
+        const isNeg      = stageIdx === 6 && i === 6;
+        return (
+          <div key={stage} className="flex-1 flex flex-col items-center gap-1">
+            <div className={`h-1.5 w-full ${i === 0 ? 'rounded-l-full' : i === PIPELINE_STAGES.length - 1 ? 'rounded-r-full' : ''} transition-colors ${
+              isNeg      ? 'bg-red-500' :
+              isActive   ? 'bg-orange-400' :
+              isComplete ? 'bg-orange-600' :
+              'bg-gray-700'
+            }`} />
+            <span className={`text-[9px] truncate w-full text-center hidden sm:block leading-none ${
+              isActive ? 'text-orange-400' : isComplete ? 'text-orange-700' : 'text-gray-700'
+            }`}>{stage.split(' ')[0]}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Applicant + user enriched submission ────────────────────────────────────
+type ApplicantInfo = {
+  name: string; phone: string; city: string; state: string;
+  work_authorization: string; email: string;
+};
+
+// ─── CEIPAL-style pipeline dots row ──────────────────────────────────────────
+function PipelineDots({ stageIdx, submittedOn }: { stageIdx: number; submittedOn: string }) {
+  const fmt = (d: string) => {
+    try { return new Date(d).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+    catch { return ''; }
+  };
+  return (
+    <div className="flex items-center w-full mt-3 mb-1 relative">
+      {PIPELINE_STAGES.map((stage, i) => {
+        const isComplete = i < stageIdx;
+        const isActive   = i === stageIdx;
+        const isNeg      = stageIdx === 6 && i === 6;
+        const dotCls =
+          isNeg      ? 'bg-red-500 border-red-500' :
+          isActive   ? 'bg-orange-400 border-orange-400 ring-2 ring-orange-400/30' :
+          isComplete ? 'bg-orange-600 border-orange-600' :
+          'bg-gray-700 border-gray-600';
+        const lineCls =
+          isComplete || isActive ? 'bg-orange-600' : 'bg-gray-700';
+
+        return (
+          <div key={stage} className="flex-1 flex flex-col items-center relative min-w-0">
+            {/* Connecting line */}
+            {i < PIPELINE_STAGES.length - 1 && (
+              <div className={`absolute top-[7px] left-1/2 w-full h-0.5 ${lineCls} z-0`} />
+            )}
+            {/* Dot */}
+            <div className={`relative z-10 w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${dotCls}`} />
+            {/* Label + date */}
+            <p className={`text-[9px] mt-1 text-center truncate w-full px-0.5 leading-tight ${isActive ? 'text-orange-400' : isComplete ? 'text-orange-700' : 'text-gray-600'}`}>
+              {stage.split(' ')[0]}
+            </p>
+            {isActive && submittedOn && (
+              <p className="text-[8px] text-orange-500 text-center truncate w-full px-0.5">{fmt(submittedOn)}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Submissions tab ──────────────────────────────────────────────────────────
+function SubmissionsTab({ submissions, loading, error, onSelectSub }: {
+  submissions: Submission[]; loading: boolean; error: string;
+  onSelectSub: (s: Submission, applicant: ApplicantInfo | null) => void;
+}) {
+  const [stageFilter, setStageFilter]     = useState<string>('all');
+  const [applicants, setApplicants]       = useState<Record<string, ApplicantInfo>>({});
+  const [usersMap, setUsersMap]           = useState<Record<string, string>>({});
+  const [enrichLoading, setEnrichLoading] = useState(false);
+
+  // Fetch users map + applicant details whenever submissions change
+  useEffect(() => {
+    if (submissions.length === 0) return;
+    setEnrichLoading(true);
+
+    const doEnrich = async () => {
+      // Fetch users map (for submitted_by name)
+      try {
+        const r = await fetch('/api/admin/users-map');
+        if (r.ok) setUsersMap(await r.json());
+      } catch { /* ignore */ }
+
+      // Fetch applicant details for each unique job_seeker_id
+      const ids = [...new Set(submissions.map(s => s.job_seeker_id).filter(Boolean))];
+      const results = await Promise.allSettled(
+        ids.map(id =>
+          fetch(`/api/admin/applicant-details?id=${encodeURIComponent(id)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => ({ id, data: d }))
+        )
+      );
+
+      const map: Record<string, ApplicantInfo> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value?.data) {
+          const d = r.value.data as Record<string, unknown>;
+          map[r.value.id] = {
+            name:  String(d.full_name ?? `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim() ?? ''),
+            phone: String(d.contact_number ?? d.phone ?? d.mobile ?? ''),
+            city:  String(d.city ?? d.current_city ?? ''),
+            state: String(d.state ?? d.current_state ?? ''),
+            work_authorization: String(d.work_authorization ?? d.visa_type ?? ''),
+            email: String(d.email_id ?? d.email ?? ''),
+          };
+        }
+      }
+      setApplicants(map);
+      setEnrichLoading(false);
+    };
+
+    doEnrich();
+  }, [submissions]);
+
+  const stageCounts = PIPELINE_STAGES.reduce<Record<string, number>>((acc, s) => {
+    acc[s] = submissions.filter(sub => PIPELINE_STAGES[mapStatusToStageIdx(sub.submission_status || sub.pipeline_status)] === s).length;
+    return acc;
+  }, {});
+
+  const filtered = stageFilter === 'all'
+    ? submissions
+    : submissions.filter(sub => PIPELINE_STAGES[mapStatusToStageIdx(sub.submission_status || sub.pipeline_status)] === stageFilter);
+
+  if (loading) return <ModalSpinner label="Loading submissions…" />;
+  if (error)   return <p className="text-red-400 text-sm">{error}</p>;
+
+  return (
+    <div>
+      {/* Stage filter tabs — CEIPAL style */}
+      <div className="flex flex-wrap gap-1.5 mb-5">
+        <button onClick={() => setStageFilter('all')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${stageFilter === 'all' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+          All <span className="ml-1 opacity-70">{submissions.length}</span>
+        </button>
+        {PIPELINE_STAGES.map(stage => (
+          <button key={stage} onClick={() => setStageFilter(stage)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${stageFilter === stage ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+            {stage} <span className="ml-1 opacity-70">{stageCounts[stage] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      {enrichLoading && submissions.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+          <div className="w-3 h-3 border border-orange-500 border-t-transparent rounded-full animate-spin" />
+          Loading candidate details…
+        </div>
+      )}
+
+      {/* Table header — CEIPAL style */}
+      {filtered.length > 0 && (
+        <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-800 mb-1">
+          <div className="col-span-3">Name</div>
+          <div className="col-span-3">Submitted By / On</div>
+          <div className="col-span-2">Contact / Location</div>
+          <div className="col-span-2">Pay Rate / Work Auth</div>
+          <div className="col-span-2">Status</div>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-gray-500 text-sm">No submissions{stageFilter !== 'all' ? ` in "${stageFilter}"` : ''}</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-800/60">
+          {filtered.map(sub => {
+            const stageIdx    = mapStatusToStageIdx(sub.submission_status || sub.pipeline_status || '');
+            const statusLabel = sub.submission_status || sub.pipeline_status || 'Unknown';
+            const applicant   = applicants[sub.job_seeker_id] ?? null;
+            const submittedBy = usersMap[sub.submitted_by ?? ''] || '';
+            const submittedOn = sub.submitted_on
+              ? new Date(sub.submitted_on).toLocaleString('en-AU', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
+              : '';
+
+            const statusCls =
+              stageIdx === 6 ? 'text-red-400' :
+              stageIdx >= 4  ? 'text-blue-400' :
+              stageIdx >= 2  ? 'text-yellow-400' :
+              'text-orange-400';
+
+            const payDisplay = [
+              sub.pay_rate ? `$${sub.pay_rate}` : '',
+              sub.employment_type || '',
+              sub.tax_term || '',
+            ].filter(Boolean).join(' / ') || '—';
+
+            const workAuth = applicant?.work_authorization || 'N/A';
+            const location = [applicant?.city, applicant?.state].filter(Boolean).join(', ') || '—';
+
+            return (
+              <div key={sub.id}
+                onClick={() => onSelectSub(sub, applicant)}
+                className="py-3 px-4 cursor-pointer hover:bg-gray-800/40 transition-colors group">
+
+                {/* CEIPAL-style table row */}
+                <div className="grid grid-cols-12 gap-2 items-start">
+                  {/* NAME */}
+                  <div className="col-span-3">
+                    <p className="text-sm font-semibold text-orange-400 group-hover:text-orange-300 transition-colors">
+                      {applicant?.name || `Applicant #${sub.applicant_id}`}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{sub.source || ''}</p>
+                  </div>
+
+                  {/* SUBMITTED BY / ON */}
+                  <div className="col-span-3">
+                    <p className="text-xs text-gray-300">{submittedBy || '—'}</p>
+                    <p className="text-[10px] text-gray-500">{submittedOn}</p>
+                  </div>
+
+                  {/* CONTACT / LOCATION */}
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-300">{applicant?.phone || '—'}</p>
+                    <p className="text-[10px] text-gray-500">{location}</p>
+                  </div>
+
+                  {/* PAY RATE / WORK AUTH */}
+                  <div className="col-span-2">
+                    <p className="text-xs text-orange-300 font-medium">{payDisplay}</p>
+                    <p className="text-[10px] text-gray-500">{workAuth}</p>
+                  </div>
+
+                  {/* STATUS */}
+                  <div className="col-span-2 text-right">
+                    <span className={`text-xs font-semibold ${statusCls}`}>{statusLabel}</span>
+                  </div>
+                </div>
+
+                {/* Pipeline dots with stage label + date */}
+                <PipelineDots stageIdx={stageIdx} submittedOn={sub.submitted_on} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Submission detail side-modal ─────────────────────────────────────────────
+function SubmissionDetailModal({ sub, applicant, onClose }: { sub: Submission; applicant: ApplicantInfo | null; onClose: () => void }) {
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/admin/submission-details?id=${encodeURIComponent(sub.id)}`)
+      .then(r => r.json())
+      .then(d => { setDetail(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [sub.id]);
+
+  const stageIdx  = mapStatusToStageIdx(sub.submission_status || sub.pipeline_status || '');
+  const resumeUrl = String(detail?.resume ?? sub.resume ?? '');
+  const docs      = (Array.isArray(detail?.Documents) ? detail!.Documents : []) as Record<string, unknown>[];
+  const candName  = applicant?.name || `Applicant #${sub.applicant_id}`;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+          <div>
+            <h3 className="font-bold text-white text-lg">{candName}</h3>
+            <p className="text-xs text-orange-400 mt-0.5">#{sub.submission_id} · {sub.source || ''}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
         </div>
 
-        <div className="p-6 pt-0">
-          <button onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors">
-            Close
-          </button>
+        <div className="p-5 space-y-5">
+          {/* Candidate info */}
+          {applicant && (
+            <div className="bg-gray-800/50 rounded-xl p-4 grid grid-cols-2 gap-3">
+              {applicant.email  && <InfoCard label="Email"    value={applicant.email} />}
+              {applicant.phone  && <InfoCard label="Phone"    value={applicant.phone} />}
+              {(applicant.city || applicant.state) && <InfoCard label="Location" value={[applicant.city, applicant.state].filter(Boolean).join(', ')} />}
+              {applicant.work_authorization && <InfoCard label="Work Auth" value={applicant.work_authorization} />}
+            </div>
+          )}
+
+          {/* Pipeline */}
+          <div>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Pipeline Stage</p>
+            <PipelineBar stageIdx={stageIdx} />
+          </div>
+
+          {loading ? <ModalSpinner label="Loading details…" /> : (
+            <>
+              {/* Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <InfoCard label="Status"          value={sub.submission_status || sub.pipeline_status || '—'} />
+                <InfoCard label="Source"          value={sub.source || '—'} />
+                <InfoCard label="Employment Type" value={sub.employment_type || String(detail?.employment_type ?? '') || '—'} />
+                <InfoCard label="Tax Term"        value={sub.tax_term || String(detail?.tax_term ?? '') || '—'} />
+                <InfoCard label="Pay Rate"        value={String(sub.pay_rate ?? detail?.pay_rate ?? '—')} />
+                <InfoCard label="Submitted On"    value={sub.submitted_on ? new Date(sub.submitted_on).toLocaleString() : '—'} />
+                <InfoCard label="Modified"        value={sub.modified ? new Date(sub.modified).toLocaleString() : '—'} />
+                <InfoCard label="Applicant ID"    value={String(sub.applicant_id || '—')} />
+              </div>
+
+              {/* Resume */}
+              {resumeUrl && (
+                <div>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Resume</p>
+                  <a href={resumeUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition-colors">
+                    ↓ Download Resume
+                  </a>
+                </div>
+              )}
+
+              {/* Documents */}
+              {docs.length > 0 && (
+                <div>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Documents ({docs.length})</p>
+                  <div className="space-y-2">
+                    {docs.map((doc, i) => (
+                      <a key={i} href={String(doc.document_path ?? '#')} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs transition-colors">
+                        📎 Document {i + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Enhanced Job Detail Modal ────────────────────────────────────────────────
+function JobDetailModal({ job, onClose }: { job: CeipalJob; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<'snapshot' | 'details' | 'submissions'>('snapshot');
+  const [detail, setDetail]         = useState<JobDetail | null>(null);
+  const [detailLoading, setDL]      = useState(false);
+  const [detailError, setDE]        = useState('');
+  const [submissions, setSubs]      = useState<Submission[]>([]);
+  const [subsLoading, setSL]        = useState(false);
+  const [subsError, setSE]          = useState('');
+  const [selectedSub, setSelectedSub] = useState<{ sub: Submission; applicant: ApplicantInfo | null } | null>(null);
+
+  const jobCode = String(job.job_code ?? '').trim();
+
+  useEffect(() => {
+    if (!jobCode) return;
+
+    // Resolve the correct V2 ID from job_code via the server-side map cache,
+    // then fetch details + submissions in parallel.
+    const resolveAndFetch = async () => {
+      let v2Id = '';
+      try {
+        const mapRes = await fetch('/api/admin/v2-job-map');
+        const map: Record<string, string> = await mapRes.json();
+        v2Id = map[jobCode] ?? '';
+      } catch {
+        setDE('Could not load job ID map'); setDL(false);
+        setSE('Could not load job ID map'); setSL(false);
+        return;
+      }
+
+      if (!v2Id) {
+        setDE(`Job not found in V2 list (${jobCode})`); setDL(false);
+        setSE(`Job not found in V2 list (${jobCode})`); setSL(false);
+        return;
+      }
+
+      setDL(true);
+      fetch(`/api/admin/job-details?id=${encodeURIComponent(v2Id)}`)
+        .then(r => r.json())
+        .then(d => { setDetail(d); setDL(false); })
+        .catch(() => { setDE('Failed to load details'); setDL(false); });
+
+      setSL(true);
+      fetch(`/api/admin/job-submissions?job_id=${encodeURIComponent(v2Id)}`)
+        .then(r => r.json())
+        .then(d => { setSubs(Array.isArray(d) ? d : []); setSL(false); })
+        .catch(() => { setSE('Failed to load submissions'); setSL(false); });
+    };
+
+    resolveAndFetch();
+  }, [jobCode]);
+
+  const status = String(job.job_status ?? '');
+  const tabs = [
+    { key: 'snapshot'    as const, label: 'Snapshot' },
+    { key: 'details'     as const, label: 'Job Details' },
+    { key: 'submissions' as const, label: `Submissions${subsLoading ? '' : ` (${submissions.length})`}` },
+  ];
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center overflow-y-auto py-6 px-4"
+        onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-5xl shadow-2xl">
+
+          {/* ── Header ── */}
+          <div className="p-6 border-b border-gray-800">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span className="text-orange-400 font-mono text-xs bg-orange-950/60 px-2.5 py-1 rounded-md border border-orange-800/40">
+                    {String(job.job_code ?? '')}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColor(status)}`}>
+                    {status}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-bold text-white truncate">{String(job.job_title ?? 'Job Detail')}</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  {[job.city, job.states, job.country].filter(Boolean).join(', ') || String(detail?.city ?? '')}
+                </p>
+              </div>
+              <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none shrink-0 p-1">&times;</button>
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-gray-800">
+              <QuickStat label="Recruiter"  value={String(job.primary_recruiter ?? detail?.primary_recruiter ?? '')} />
+              <QuickStat label="Pay Rate"   value={String(job.pay_rate___salary ?? '')} />
+              <QuickStat label="Positions"  value={String(job.number_of_positions ?? detail?.number_of_positions ?? '')} />
+              <QuickStat label="Industry"   value={String(detail?.industry ?? job.industry ?? '')} />
+            </div>
+          </div>
+
+          {/* ── Tabs ── */}
+          <div className="flex border-b border-gray-800 px-6 gap-1">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setActiveTab(t.key)}
+                className={`px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap ${
+                  activeTab === t.key
+                    ? 'text-orange-400 border-b-2 border-orange-400 -mb-px'
+                    : 'text-gray-400 hover:text-white'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Tab content ── */}
+          <div className="p-6 min-h-[300px]">
+            {activeTab === 'snapshot'    && <SnapshotTab job={job} detail={detail} loading={detailLoading} error={detailError} />}
+            {activeTab === 'details'     && <DetailsTab detail={detail} loading={detailLoading} error={detailError} />}
+            {activeTab === 'submissions' && <SubmissionsTab submissions={submissions} loading={subsLoading} error={subsError} onSelectSub={(s, a) => setSelectedSub({ sub: s, applicant: a })} />}
+          </div>
+
+          {/* ── Footer ── */}
+          <div className="px-6 pb-6 flex justify-end border-t border-gray-800 pt-4">
+            <button onClick={onClose}
+              className="px-5 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {selectedSub && (
+        <SubmissionDetailModal sub={selectedSub.sub} applicant={selectedSub.applicant} onClose={() => setSelectedSub(null)} />
+      )}
+    </>
   );
 }
 
