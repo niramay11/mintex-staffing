@@ -6,8 +6,7 @@ export const maxDuration = 60;
 const PAGE_SIZE     = 50;
 const CACHE_TTL     = 5 * 60 * 1000;   // 5 min
 const STALE_TTL     = 2 * 60 * 1000;   // 2 min stale window
-const CACHE_VERSION = 7;
-const DELAY_MS      = 100;             // 100ms between pages — gentle on CEIPAL, fast enough for Railway
+const CACHE_VERSION = 8;
 
 let cache: { data: unknown[]; at: number; v: number } | null = null;
 let inflight: Promise<unknown[]> | null = null;
@@ -57,7 +56,7 @@ async function fetchAllJobs(): Promise<unknown[]> {
         console.warn('[jobs] 3 consecutive errors, stopping fetch');
         break;
       }
-      await sleep(DELAY_MS * 2); // back off on error
+      await sleep(500); // back off on error
       continue;
     }
 
@@ -75,7 +74,7 @@ async function fetchAllJobs(): Promise<unknown[]> {
       break;
     }
 
-    await sleep(DELAY_MS); // polite delay between requests
+    // no delay — sequential requests don't trigger CEIPAL rate limits
   }
 
   // Filter: JPC prefix only, deduplicate, sort newest first
