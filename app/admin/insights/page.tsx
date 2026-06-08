@@ -489,9 +489,8 @@ function DetailsTab({ detail, loading, error }: { detail: JobDetail | null; load
       {!!detail.public_job_desc && (
         <div>
           <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Public Job Description</h4>
-          <div className="bg-gray-800/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed max-h-44 overflow-y-auto">
-            {String(detail.public_job_desc)}
-          </div>
+          <div className="bg-gray-800/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed max-h-48 overflow-y-auto prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: String(detail.public_job_desc) }} />
         </div>
       )}
 
@@ -511,26 +510,6 @@ function DetailsTab({ detail, loading, error }: { detail: JobDetail | null; load
         <InfoCard label="Positions"    value={String(detail.number_of_positions ?? '')} />
       </div>
 
-      {/* Apply links */}
-      {(!!detail.apply_job || !!detail.apply_job_without_registration) && (
-        <div>
-          <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Apply Links</h4>
-          <div className="flex flex-wrap gap-3">
-            {!!detail.apply_job && (
-              <a href={String(detail.apply_job)} target="_blank" rel="noopener noreferrer"
-                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition-colors">
-                Apply (with registration)
-              </a>
-            )}
-            {!!detail.apply_job_without_registration && (
-              <a href={String(detail.apply_job_without_registration)} target="_blank" rel="noopener noreferrer"
-                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition-colors">
-                Apply (no registration)
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -880,16 +859,6 @@ function SubmissionDetailModal({ sub, applicant, onClose }: { sub: Submission; a
                 <InfoCard label="Applicant ID"    value={String(sub.applicant_id || '—')} />
               </div>
 
-              {/* Resume */}
-              {resumeToken && (
-                <div>
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Resume</p>
-                  <a href={`https://api.ceipal.com/download/${resumeToken}`} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition-colors">
-                    ↓ Download Resume
-                  </a>
-                </div>
-              )}
 
               {/* Documents */}
               {docs.length > 0 && (
@@ -1000,7 +969,7 @@ function JobDetailModal({ job, onClose }: { job: CeipalJob; onClose: () => void 
 
             {/* Quick stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-gray-800">
-              <QuickStat label="Recruiter"  value={String(job.primary_recruiter ?? detail?.primary_recruiter ?? '')} />
+              <QuickStat label="Recruiter"  value={String(job.sales_manager ?? job.client_manager ?? detail?.recruitment_manager ?? '—')} />
               <QuickStat label="Pay Rate"   value={String(job.pay_rate___salary ?? '')} />
               <QuickStat label="Positions"  value={String(job.number_of_positions ?? detail?.number_of_positions ?? '')} />
               <QuickStat label="Industry"   value={String(detail?.industry ?? job.industry ?? '')} />
