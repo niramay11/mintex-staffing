@@ -45,173 +45,6 @@ const isActiveJob = (j: Job): boolean => {
     return true;
 };
 
-// Real CEIPAL data only — no dummy fallback
-const _REMOVED_DUMMY = [{ job_code: "",
-        states: "California", zip_code: "94080", country: "United States",
-        location: "San Francisco, CA, 94080; Seattle, WA, 98106; Santa Monica, CA, 90403",
-        pay_rate___salary: "$21 - $25/hr", career_portal_published_date: "2026-06-04",
-        job_type: "Contract", job_status: "Open", remote_job: "Hybrid", experience: "0 - 1 Years",
-        primary_skills: "IT Support, Help Desk, Active Directory, Networking",
-        industry: "Information Technology",
-        job_description: "",
-        public_job_description: `Job Description:
-
-Position: IT Intern
-Location: Silicon Valley, San Francisco, New York, Seattle, Santa Monica (Hybrid - minimum 1 day onsite per week)
-Duration: Through Summer 2026
-Pay Rate: $21 - $25 per hour
-
-About Role
-Internship opportunities across several areas of the IT Department. Interns will gain broad hands-on experience with enterprise systems, operational workflows, and cross-team collaboration, with exposure to multiple IT function areas.
-
-About the Opportunity (Responsibilities)
-• Service Desk & AV Support (New York, NY) — Daily service desk operations, troubleshooting, conference room technology, AV support
-• Solutions & Automation (West Coast offices) — AI prompting, workflow experimentation, generative AI tools, embedding security and confidentiality controls
-• Cybersecurity (Silicon Valley, CA) — Alert monitoring, incident response activities, verification tasks
-• Technical Training (Silicon Valley, CA) — Digital learning projects, internal training content creation
-
-Minimum Requirement:
-• Currently enrolled in a college degree program
-• Pursuing a degree in Computer Science, Information Technology, or a related technical field
-• Strong communication and collaboration skills
-• Ability to work onsite at least 1 day per week`,
-    },
-    {
-        job_code: "JPC-1481", job_title: "Trademark Operations Supervisor", city: "San Francisco",
-        states: "California", zip_code: "94102", country: "United States",
-        location: "San Francisco, CA, 94102, United States",
-        pay_rate___salary: "$90,000 - $115,000/yr", career_portal_published_date: "2026-06-03",
-        job_type: "Full Time", job_status: "Open", remote_job: "Hybrid", experience: "5 Years",
-        primary_skills: "Trademark Law, Operations Management, Legal Administration, IP",
-        industry: "Legal",
-        job_description: "",
-        public_job_description: `Job Title: Trademark Operations Supervisor
-Location: San Francisco, CA (Hybrid)
-Position Type: Full-time
-
-Role Summary:
-Client is looking for a Trademark Operations Supervisor to lead the day-to-day administrative and operational functions of our Trademark practice. To supervise support staff, optimize workflows, and partner closely with attorneys, paralegals, and firm leadership to ensure high-quality service delivery.
-
-About the Opportunity (Responsibilities)
-• Oversee daily trademark docketing, filing deadlines, and USPTO correspondence
-• Manage and mentor a team of trademark paralegals and legal assistants
-• Coordinate with outside counsel and foreign associates on international trademark matters
-• Develop and maintain standard operating procedures for trademark workflows
-• Monitor billing, budget compliance, and matter management systems
-
-Minimum Requirement:
-• 5+ years of experience in trademark operations or IP law firm administration
-• Strong knowledge of USPTO procedures and trademark lifecycle management
-• Proven supervisory experience in a legal or professional services environment
-• Excellent organizational, communication, and leadership skills`,
-    },
-    {
-        job_code: "JPC-1480", job_title: "Director of Airport Operations", city: "Tulsa",
-        states: "Oklahoma", zip_code: "74132", country: "United States",
-        location: "Tulsa, OK, 74132, United States",
-        pay_rate___salary: "$115,000 - $125,000/yr", career_portal_published_date: "2026-06-03",
-        job_type: "Full Time", job_status: "Open", remote_job: "On-site", experience: "7 Years",
-        primary_skills: "Airport Operations, Aviation Management, FAA Regulations, Leadership",
-        industry: "Aviation",
-        job_description: "",
-        public_job_description: `Position: Director of Airport Operations
-Location: Tulsa, OK
-Duration: Full Time / Permanent
-Salary: $115k-$125k (25% bonus)
-Reports To: Regional Vice President of Airport Operations
-Status: Exempt
-Department: Operations
-
-Broad Functions:
-Lead and oversee airport operations business, focusing on delivering exceptional results, building a great culture, developing future leaders, and maintaining strong client relationships.
-
-About the Opportunity (Responsibilities)
-• Oversee all operational functions of the airport including ground handling, security, and terminal operations
-• Ensure compliance with FAA, TSA, and local airport authority regulations
-• Develop and execute operational strategies aligned with corporate goals
-• Build and maintain strong relationships with airline partners and airport authority stakeholders
-• Lead, mentor, and develop a high-performing team of operations managers
-
-Minimum Requirement:
-• 7+ years of progressive airport or aviation operations experience
-• Strong knowledge of FAA regulations and airport security protocols
-• Proven leadership experience managing large, multi-functional teams
-• Excellent communication and relationship management skills`,
-    },
-    {
-        job_code: "JPC-1479", job_title: "Executive Chef", city: "New York",
-        states: "New York", zip_code: "10001", country: "United States",
-        location: "New York, NY, 10001, United States",
-        pay_rate___salary: "$85,000 - $110,000/yr", career_portal_published_date: "2026-06-01",
-        job_type: "Full Time", job_status: "Open", remote_job: "On-site", experience: "5 Years",
-        primary_skills: "Culinary Arts, Menu Development, Kitchen Management, Food Safety",
-        industry: "Hospitality",
-        job_description: "",
-        public_job_description: `Position: Executive Chef
-Location: New York, NY
-Type: Full Time / Permanent
-
-Role Summary:
-We are seeking a passionate and experienced Executive Chef to lead our culinary team and drive menu innovation across our restaurant group.
-
-About the Opportunity (Responsibilities)
-• Design and execute seasonal menus that reflect current culinary trends
-• Manage kitchen staff including sous chefs, line cooks, and prep staff
-• Maintain food quality, consistency, and presentation standards
-• Oversee inventory, food costs, and vendor relationships
-• Ensure compliance with health, safety, and sanitation regulations
-
-Minimum Requirement:
-• 5+ years of experience as an Executive Chef or equivalent leadership role
-• Culinary degree or equivalent professional training
-• Strong knowledge of food costing, menu engineering, and kitchen operations
-• Excellent leadership and communication skills`,
-    },
-    {
-        job_code: "JPC-1478", job_title: "Senior React Developer", city: "Austin",
-        states: "Texas", zip_code: "78701", country: "United States",
-        location: "Austin, TX, 78701, United States",
-        pay_rate___salary: "$120,000 - $160,000/yr", career_portal_published_date: "2026-05-30",
-        job_type: "Full Time", job_status: "Open", remote_job: "Remote", experience: "5 Years",
-        primary_skills: "React, TypeScript, Node.js, GraphQL, Redux",
-        industry: "Information Technology",
-        job_description: "",
-        public_job_description: `We are looking for an experienced Senior React Developer to join our growing engineering team.
-
-About the Opportunity (Responsibilities)
-• Design and implement scalable front-end solutions using React, TypeScript, and modern tooling
-• Collaborate with product designers and backend engineers to deliver pixel-perfect features
-• Mentor junior developers and participate in code reviews
-• Optimize application performance and improve developer experience
-
-Minimum Requirement:
-• 5+ years of professional React experience
-• Deep understanding of TypeScript and modern JavaScript (ES2022+)
-• Experience with state management (Redux, Zustand, or Jotai)
-• Familiarity with GraphQL and REST API integration`,
-    },
-    {
-        job_code: "JPC-1477", job_title: "DevOps Engineer", city: "Seattle",
-        states: "Washington", zip_code: "98101", country: "United States",
-        location: "Seattle, WA, 98101, United States",
-        pay_rate___salary: "$110,000 - $145,000/yr", career_portal_published_date: "2026-05-28",
-        job_type: "Full Time", job_status: "Open", remote_job: "Remote", experience: "3 Years",
-        primary_skills: "AWS, Docker, Kubernetes, CI/CD, Terraform",
-        industry: "Information Technology",
-        job_description: "",
-        public_job_description: `Join our infrastructure team to build and maintain the cloud systems that power our platform at scale.
-
-About the Opportunity (Responsibilities)
-• Design and manage AWS infrastructure using Terraform and CloudFormation
-• Build and maintain CI/CD pipelines (GitHub Actions, Jenkins)
-• Manage Kubernetes clusters and containerized workloads
-
-Minimum Requirement:
-• 3+ years of DevOps or SRE experience
-• Hands-on expertise with AWS services (EKS, RDS, S3, CloudFront, Lambda)
-• Proficiency with Docker and Kubernetes`,
-    },
-];
 
 const C = {
     coral:    '#FF5758',
@@ -230,6 +63,19 @@ const REMOTE_COLORS: Record<string, { bg: string; border: string; color: string;
 };
 
 const GF = 'var(--font-gilroy)';
+
+// Strip HTML tags and decode common entities for plain-text previews
+const stripHtml = (html: string): string =>
+    html
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
 
 // ── FilterSection ────────────────────────────────────────────────────────────
 const FilterSection = ({ label, options, selected, onToggle, defaultExpanded = true }: {
@@ -1038,7 +884,7 @@ const JobsClient = () => {
                                                             {(job.public_job_description || job.job_description) && (
                                                                 <p className="text-[12px] leading-relaxed mb-3 line-clamp-2"
                                                                     style={{ color: 'rgba(160,178,205,0.5)', fontFamily: GF }}>
-                                                                    {(job.public_job_description || job.job_description).split('\n').find(l => l.trim() && !l.trim().endsWith(':')) ?? ''}
+                                                                    {stripHtml(job.public_job_description || job.job_description).slice(0, 160)}
                                                                 </p>
                                                             )}
 
