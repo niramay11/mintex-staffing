@@ -6,8 +6,8 @@ export const maxDuration = 60;
 const PAGE_SIZE     = 50;
 const CACHE_TTL     = 5 * 60 * 1000;   // 5 min
 const STALE_TTL     = 2 * 60 * 1000;   // 2 min stale window
-const CACHE_VERSION = 6;
-const DELAY_MS      = 300;             // 300ms between requests — avoids CEIPAL rate limit
+const CACHE_VERSION = 7;
+const DELAY_MS      = 100;             // 100ms between pages — gentle on CEIPAL, fast enough for Railway
 
 let cache: { data: unknown[]; at: number; v: number } | null = null;
 let inflight: Promise<unknown[]> | null = null;
