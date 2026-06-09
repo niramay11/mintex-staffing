@@ -25,6 +25,7 @@ interface Job {
     job_description: string;
     public_job_description: string;
     industry?: string;
+    work_authorization?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -498,6 +499,7 @@ const JobsClient = () => {
     const [filterLocations, setFilterLocations]     = useState<Set<string>>(new Set());
     const [filterExperiences, setFilterExperiences] = useState<Set<string>>(new Set());
     const [filterIndustries, setFilterIndustries]   = useState<Set<string>>(new Set());
+    const [filterWorkAuths, setFilterWorkAuths]     = useState<Set<string>>(new Set());
 
     // Search
     const [searchTitle, setSearchTitle] = useState('');
@@ -554,6 +556,7 @@ const JobsClient = () => {
     const locationOpts = useMemo(() => Array.from(new Set(activeJobs.map(j => j.remote_job).filter(Boolean))).sort(), [activeJobs]);
     const expOpts     = useMemo(() => Array.from(new Set(activeJobs.map(j => j.experience).filter(Boolean))).sort(), [activeJobs]);
     const industries  = useMemo(() => Array.from(new Set(activeJobs.map(j => j.industry).filter(Boolean) as string[])).sort(), [activeJobs]);
+    const workAuthOpts = useMemo(() => Array.from(new Set(activeJobs.map(j => j.work_authorization).filter(Boolean) as string[])).sort(), [activeJobs]);
 
     const toggleSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, val: string) =>
         setter(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s; });
@@ -561,12 +564,13 @@ const JobsClient = () => {
     const handleSearch = () => { setAppliedTitle(searchTitle); setAppliedZip(searchZip); };
     const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSearch(); };
 
-    const activeFilterCount = filterTypes.size + filterLocations.size + filterExperiences.size + filterIndustries.size
+    const activeFilterCount = filterTypes.size + filterLocations.size + filterExperiences.size + filterIndustries.size + filterWorkAuths.size
         + (appliedTitle.trim() ? 1 : 0) + (appliedZip.trim() ? 1 : 0);
 
     const clearAllFilters = () => {
         setFilterTypes(new Set()); setFilterLocations(new Set());
         setFilterExperiences(new Set()); setFilterIndustries(new Set());
+        setFilterWorkAuths(new Set());
         setSearchTitle(''); setSearchZip('');
         setAppliedTitle(''); setAppliedZip('');
     };
@@ -576,6 +580,7 @@ const JobsClient = () => {
         if (filterLocations.size > 0 && !filterLocations.has(j.remote_job)) return false;
         if (filterExperiences.size > 0 && !filterExperiences.has(j.experience)) return false;
         if (filterIndustries.size > 0 && j.industry && !filterIndustries.has(j.industry)) return false;
+        if (filterWorkAuths.size > 0 && j.work_authorization && !filterWorkAuths.has(j.work_authorization)) return false;
         if (appliedTitle.trim()) {
             const q = appliedTitle.toLowerCase();
             if (!`${j.job_title} ${j.primary_skills} ${j.city} ${j.states} ${j.location}`.toLowerCase().includes(q)) return false;
@@ -633,10 +638,11 @@ const JobsClient = () => {
                 )}
             </div>
             <div className="flex-1 overflow-y-auto hide-scrollbar">
-                {jobTypes.length > 0    && <FilterSection label="Job Type"      options={jobTypes}     selected={filterTypes}      onToggle={v => toggleSet(setFilterTypes, v)}      defaultExpanded />}
-                {locationOpts.length > 0 && <FilterSection label="Work Location" options={locationOpts} selected={filterLocations}  onToggle={v => toggleSet(setFilterLocations, v)} defaultExpanded />}
-                {industries.length > 0  && <FilterSection label="Industry"      options={industries}   selected={filterIndustries}  onToggle={v => toggleSet(setFilterIndustries, v)} defaultExpanded={false} />}
-                {expOpts.length > 0     && <FilterSection label="Experience"    options={expOpts}      selected={filterExperiences} onToggle={v => toggleSet(setFilterExperiences, v)} defaultExpanded={false} />}
+                {jobTypes.length > 0    && <FilterSection label="Job Type"           options={jobTypes}      selected={filterTypes}      onToggle={v => toggleSet(setFilterTypes, v)}      defaultExpanded />}
+                {locationOpts.length > 0 && <FilterSection label="Work Location"    options={locationOpts}  selected={filterLocations}  onToggle={v => toggleSet(setFilterLocations, v)} defaultExpanded />}
+                {workAuthOpts.length > 0 && <FilterSection label="Work Authorization" options={workAuthOpts} selected={filterWorkAuths}  onToggle={v => toggleSet(setFilterWorkAuths, v)} defaultExpanded />}
+                {industries.length > 0  && <FilterSection label="Industry"          options={industries}    selected={filterIndustries}  onToggle={v => toggleSet(setFilterIndustries, v)} defaultExpanded={false} />}
+                {expOpts.length > 0     && <FilterSection label="Experience"        options={expOpts}       selected={filterExperiences} onToggle={v => toggleSet(setFilterExperiences, v)} defaultExpanded={false} />}
             </div>
         </div>
     );
@@ -710,6 +716,7 @@ const JobsClient = () => {
                                 <ApplyView
                                     key="apply"
                                     jobs={selectedJobs}
+                                    allJobs={activeJobs}
                                     onBack={closeApply}
                                     onSuccess={() => { closeApply(); setSelectedCodes(new Set()); }}
                                 />

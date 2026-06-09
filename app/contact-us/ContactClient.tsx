@@ -290,7 +290,7 @@ const ContactClient = () => {
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         style={{
                             position: 'absolute',
-                            left: pinPos ? Math.min(pinPos.x + 20, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 260) : '5%',
+                            left: pinPos ? Math.min(pinPos.x + 120, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 260) : '5%',
                             top: pinPos ? Math.max(pinPos.y - 60, 80) : '20%',
                             width: 'min(420px, 90vw)',
                             zIndex: 100,

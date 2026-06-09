@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 interface LabelInfo { x: number; y: number }
 interface Props {
   onPinReady?: (x: number, y: number) => void;
-  onPinClick?: () => void;
+  onPinClick?: (clientX: number, clientY: number) => void;
 }
 
 export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
@@ -152,7 +152,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
       {/* Lucide-style MapPin rendered in same coordinate space as Leaflet — always exact */}
       {pinPos && (
         <div
-          onClick={onPinClick}
+          onClick={(e) => onPinClick?.(e.clientX, e.clientY)}
           style={{
             position:  "absolute",
             left:      pinPos.x,

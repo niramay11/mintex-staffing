@@ -20,6 +20,7 @@ interface Job {
 
 interface ApplyViewProps {
     jobs: Job[];
+    allJobs?: Job[];
     onBack: () => void;
     onSuccess: () => void;
 }
@@ -46,9 +47,7 @@ const COUNTRIES = ['United States', 'Canada', 'United Kingdom', 'India', 'Austra
 const US_STATES = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'];
 
 interface FormData {
-    firstName: string;
-    middleName: string;
-    lastName: string;
+    fullName: string;
     email: string;
     mobileNumber: string;
     workAuthorization: string;
@@ -70,7 +69,7 @@ interface FormData {
 }
 
 const defaultForm = (jobs: Job[]): FormData => ({
-    firstName: '', middleName: '', lastName: '',
+    fullName: '',
     email: '', mobileNumber: '',
     workAuthorization: '', country: 'United States',
     state: '', city: '', address: '', zipCode: '',
@@ -123,7 +122,7 @@ const fmtDate = (s: string) => {
 };
 
 // ── Main Component ───────────────────────────────────────────────────────────
-const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
+const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess }) => {
     const [form, setForm]           = useState<FormData>(defaultForm(jobs));
     const [errors, setErrors]       = useState<Partial<Record<keyof FormData, string>>>({});
     const [submitting, setSubmitting] = useState(false);
@@ -136,8 +135,7 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
 
     const validate = (): boolean => {
         const e: Partial<Record<keyof FormData, string>> = {};
-        if (!form.firstName.trim())    e.firstName    = 'Required';
-        if (!form.lastName.trim())     e.lastName     = 'Required';
+        if (!form.fullName.trim())     e.fullName     = 'Required';
         if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Valid email required';
         if (!form.mobileNumber.trim() || !/^\d{7,15}$/.test(form.mobileNumber.replace(/[\s\-()]/g, ''))) e.mobileNumber = 'Valid number required';
         if (!form.workAuthorization)   e.workAuthorization = 'Required';
@@ -160,9 +158,7 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
         setSubmitting(true); setSubmitStatus(null);
         try {
             const fd = new FormData();
-            fd.append('firstName',        form.firstName);
-            fd.append('middleName',       form.middleName);
-            fd.append('lastName',         form.lastName);
+            fd.append('fullName',         form.fullName);
             fd.append('email',            form.email);
             fd.append('mobileNumber',     form.mobileNumber);
             fd.append('workAuthorization',form.workAuthorization);
@@ -229,13 +225,11 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0"
                                 style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}>
-                                {(form.firstName?.[0] ?? form.email?.[0] ?? 'A').toUpperCase()}
+                                {(form.fullName?.[0] ?? form.email?.[0] ?? 'A').toUpperCase()}
                             </div>
                             <div>
                                 <p className="font-black text-sm" style={{ color: '#f0f4ff', fontFamily: GF }}>
-                                    {form.firstName || form.lastName
-                                        ? `${form.firstName} ${form.lastName}`.trim()
-                                        : 'New Applicant'}
+                                    {form.fullName.trim() || 'New Applicant'}
                                 </p>
                                 <p className="text-[12px]" style={{ color: 'rgba(160,178,205,0.5)', fontFamily: GF }}>
                                     Applying for <span style={{ color: C.cyanText }}>{jobLabel}</span>
@@ -284,30 +278,15 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
 
                         {/* Submission Details */}
                         <Section title="Submission Details">
-                            {/* Row 1: First / Middle / Last */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* Row 1: Full Name */}
+                            <div className="grid grid-cols-1 gap-4">
                                 <div>
-                                    <FieldLabel required>First Name</FieldLabel>
-                                    <input value={form.firstName} onChange={e => set('firstName', e.target.value)}
-                                        placeholder="First Name" style={inputStyle(errors.firstName)}
+                                    <FieldLabel required>Full Name</FieldLabel>
+                                    <input value={form.fullName} onChange={e => set('fullName', e.target.value)}
+                                        placeholder="Full Name" style={inputStyle(errors.fullName)}
                                         onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = errors.firstName ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                    <FieldError msg={errors.firstName} />
-                                </div>
-                                <div>
-                                    <FieldLabel>Middle Name</FieldLabel>
-                                    <input value={form.middleName} onChange={e => set('middleName', e.target.value)}
-                                        placeholder="Middle Name" style={inputStyle()}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                </div>
-                                <div>
-                                    <FieldLabel required>Last Name</FieldLabel>
-                                    <input value={form.lastName} onChange={e => set('lastName', e.target.value)}
-                                        placeholder="Last Name" style={inputStyle(errors.lastName)}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = errors.lastName ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                    <FieldError msg={errors.lastName} />
+                                        onBlur={e => { e.target.style.borderColor = errors.fullName ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
+                                    <FieldError msg={errors.fullName} />
                                 </div>
                             </div>
 
@@ -379,10 +358,15 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, onBack, onSuccess }) => {
                                 </div>
                                 <div>
                                     <FieldLabel required>Job Title</FieldLabel>
-                                    <input value={form.jobTitle} onChange={e => set('jobTitle', e.target.value)}
-                                        placeholder="Job Title" style={inputStyle(errors.jobTitle)}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = errors.jobTitle ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
+                                    <select value={form.jobTitle} onChange={e => set('jobTitle', e.target.value)}
+                                        style={selectStyle(errors.jobTitle)}>
+                                        <option value="" style={{ background: '#06091e' }}>Select Job Title</option>
+                                        {(allJobs && allJobs.length > 0 ? allJobs : jobs).map(j => (
+                                            <option key={j.job_code} value={j.job_title} style={{ background: '#06091e' }}>
+                                                {j.job_title} ({j.job_code})
+                                            </option>
+                                        ))}
+                                    </select>
                                     <FieldError msg={errors.jobTitle} />
                                 </div>
                                 <div>

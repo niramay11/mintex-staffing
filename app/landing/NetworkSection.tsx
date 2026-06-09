@@ -31,7 +31,7 @@ const services = [
 const HUB = { lat: 39.0997, lng: -94.5786 };
 const CHINA_CENTER = { lat: 39.9042, lng: 116.4074 };
 const USA_CENTER = { lat: 39.8283, lng: -98.5795 };
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = 1024; // below 1024px use services grid — globe GSAP pin works only on desktop
 
 const correctCameraUp = (globe: any, lat: number, lng: number) => {
   const camera = globe?.camera?.();

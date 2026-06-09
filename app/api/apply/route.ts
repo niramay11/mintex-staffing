@@ -5,9 +5,7 @@ export async function POST(req: Request) {
     try {
         const formData = await req.formData();
 
-        const firstName        = formData.get('firstName') as string;
-        const middleName       = formData.get('middleName') as string || '';
-        const lastName         = formData.get('lastName') as string;
+        const fullNameRaw      = formData.get('fullName') as string;
         const email            = formData.get('email') as string;
         const mobileNumber     = formData.get('mobileNumber') as string;
         const workAuthorization= formData.get('workAuthorization') as string;
@@ -25,10 +23,10 @@ export async function POST(req: Request) {
         const jobsStr          = formData.get('jobs') as string;
         const resume           = formData.get('resume') as File | null;
 
-        const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
+        const fullName = fullNameRaw || '';
         const location = [city, state, country, zipCode].filter(Boolean).join(', ');
 
-        if (!firstName || !lastName || !email || !mobileNumber || !jobsStr) {
+        if (!fullName || !email || !mobileNumber || !jobsStr) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 

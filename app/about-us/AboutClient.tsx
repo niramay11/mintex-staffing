@@ -46,9 +46,7 @@ const AboutClient = () => {
                             {[...Array(2)].map((_, i) => (
                                 <h1
                                     key={`a-${i}`}
-                                    className="text-[15vw] md:text-[14rem] lg:text-[18rem] 
-                     leading-none tracking-wide font-bebas 
-                     text-[#7DD3FC] px-[10vw] whitespace-nowrap"
+                                    className="text-[15vw] md:text-[8rem] lg:text-[14rem] xl:text-[18rem] leading-none tracking-wide font-bebas text-[#7DD3FC] px-[10vw] whitespace-nowrap"
                                 >
                                     POWERING THE FUTURE OF HIRING
                                 </h1>
@@ -60,9 +58,7 @@ const AboutClient = () => {
                             {[...Array(6)].map((_, i) => (
                                 <h1
                                     key={`b-${i}`}
-                                    className="text-[15vw] md:text-[14rem] lg:text-[18rem] 
-                     leading-none tracking-wide font-bebas 
-                     text-[#7DD3FC] px-[10vw] whitespace-nowrap"
+                                    className="text-[15vw] md:text-[8rem] lg:text-[14rem] xl:text-[18rem] leading-none tracking-wide font-bebas text-[#7DD3FC] px-[10vw] whitespace-nowrap"
                                 >
                                     OF HIRING
                                 </h1>

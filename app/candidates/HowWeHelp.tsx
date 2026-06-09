@@ -25,7 +25,7 @@ const HowWeHelp = () => {
                     initial={{ opacity: 0, scale: 0.9 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1 }}
-                    className="relative md:absolute inset-0 flex items-center justify-center select-none scale-[0.45] sm:scale-75 md:scale-100 origin-center my-[-80px] md:my-0"
+                    className="relative md:absolute inset-0 flex items-center justify-center select-none scale-[0.5] sm:scale-75 md:scale-100 origin-center my-[-60px] sm:my-[-40px] md:my-0"
                     style={{ perspective: "1000px" }}
                 >
                     <div className="relative w-[1000px] h-[500px] flex items-center justify-center">
@@ -103,7 +103,7 @@ const HowWeHelp = () => {
         </div>
     </div>
 
-    <div className="md:absolute md:right-[2%] lg:right-[8%] md:top-[18%] flex justify-end">
+    <div className="md:absolute md:right-[2%] lg:right-[8%] md:top-[18%] md:flex md:justify-end">
         <div className="
             group
             rounded-[32px]
@@ -153,7 +153,7 @@ const HowWeHelp = () => {
         </div>
     </div>
 
-    <div className="md:absolute md:right-[0%] lg:right-[2%] md:top-[50%] md:-translate-y-1/2 flex justify-end">
+    <div className="md:absolute md:right-[0%] lg:right-[2%] md:top-[50%] md:-translate-y-1/2 md:flex md:justify-end">
         <div className="
             group
             rounded-[32px]
@@ -203,7 +203,7 @@ const HowWeHelp = () => {
         </div>
     </div>
 
-    <div className="md:absolute md:right-[2%] lg:right-[8%] md:bottom-[18%] flex justify-end">
+    <div className="md:absolute md:right-[2%] lg:right-[8%] md:bottom-[18%] md:flex md:justify-end">
         <div className="
             group
             rounded-[32px]
@@ -264,7 +264,7 @@ const FeatureCard = ({ title, subtitle, delay, direction, alignRight = false }: 
         {/* Dynamic Glow Effect */}
         <div className="absolute inset-0 bg-green-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-full" />
 
-        <div className={`relative p-2 md:p-4 bg-black/60 border border-white/10 group-hover:border-green-500/50 rounded-sm w-40 md:w-56 flex ${alignRight ? 'flex-row-reverse' : 'flex-row'} items-center gap-3 shadow-2xl backdrop-blur-md transition-colors duration-300`}>
+        <div className={`relative p-2 md:p-4 bg-black/60 border border-white/10 group-hover:border-green-500/50 rounded-sm w-full md:w-56 flex ${alignRight ? 'md:flex-row-reverse flex-row' : 'flex-row'} items-center gap-3 shadow-2xl backdrop-blur-md transition-colors duration-300`}>
             {/* The Green Square Icon box */}
             <div className="w-8 h-8 md:w-10 md:h-10 bg-green-600/10 border border-green-500/20 group-hover:border-green-400 group-hover:bg-green-600/30 rounded-sm shrink-0 flex items-center justify-center transition-all duration-300">
                 <motion.div
