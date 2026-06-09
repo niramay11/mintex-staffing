@@ -86,7 +86,24 @@ export default function PortalDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading]         = useState(true);
+  const [syncing, setSyncing]         = useState(false);
+  const [lastSynced, setLastSynced]   = useState<Date | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+
+  const loadData = async (force = false) => {
+    if (force) setSyncing(true); else setLoading(true);
+    try {
+      const suffix = force ? '?refresh=1' : '';
+      const [jd, pd] = await Promise.all([
+        fetch(`/api/portal/jobs${suffix}`).then(r => r.json()),
+        fetch(`/api/portal/placements${suffix}`).then(r => r.json()),
+      ]);
+      setJobs(Array.isArray(jd.results) ? jd.results : []);
+      setPlacements(Array.isArray(pd.results) ? pd.results : []);
+      setLastSynced(new Date());
+    } catch { /* keep existing data */ }
+    finally { setLoading(false); setSyncing(false); }
+  };
 
   useEffect(() => {
     fetch('/api/portal/me')
@@ -99,14 +116,7 @@ export default function PortalDashboard() {
 
   useEffect(() => {
     if (!authChecked) return;
-    Promise.all([
-      fetch('/api/portal/jobs').then(r => r.json()),
-      fetch('/api/portal/placements').then(r => r.json()),
-    ]).then(([jd, pd]) => {
-      setJobs(Array.isArray(jd.results) ? jd.results : []);
-      setPlacements(Array.isArray(pd.results) ? pd.results : []);
-      setLoading(false);
-    });
+    loadData();
   }, [authChecked]);
 
   const handleLogout = async () => {
@@ -166,15 +176,34 @@ export default function PortalDashboard() {
 
         {/* Tabs + Filters */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex gap-1">
-            {(['jobs','placements'] as const).map(tab => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setSearch(''); setStatusFilter('all'); }}
-                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                  activeTab === tab ? 'bg-orange-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'
-                }`}>
-                {tab === 'jobs' ? `Jobs (${jobs.length})` : `Candidates (${placements.length})`}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex gap-1">
+              {(['jobs','placements'] as const).map(tab => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setSearch(''); setStatusFilter('all'); }}
+                  className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === tab ? 'bg-orange-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'
+                  }`}>
+                  {tab === 'jobs' ? `Jobs (${jobs.length})` : `Candidates (${placements.length})`}
+                </button>
+              ))}
+            </div>
+            {/* Sync button */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadData(true)}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors disabled:opacity-50 border border-gray-700">
+                <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {syncing ? 'Syncing…' : 'Sync Now'}
               </button>
-            ))}
+              {lastSynced && (
+                <span className="text-xs text-gray-500">
+                  Last synced: {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {activeTab === 'jobs' && statuses.length > 2 && (
@@ -224,8 +253,15 @@ function StatCard({ label, value }: { label: string; value: number }) {
 // ─── Jobs table ───────────────────────────────────────────────────────────────
 function JobsTable({ jobs, permissions, onView }: { jobs: Job[]; permissions: Record<string, boolean>; onView: (j: Job) => void }) {
   if (jobs.length === 0) return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center">
-      <p className="text-gray-500">No jobs found.</p>
+    <div className="bg-gray-900 rounded-xl border border-gray-800 p-16 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-gray-800 border border-gray-700 flex items-center justify-center mx-auto mb-4">
+        <svg className="w-7 h-7 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <p className="text-gray-400 font-medium mb-1">No job postings assigned yet</p>
+      <p className="text-gray-600 text-sm">Contact your Mintex account manager to get access to job postings.</p>
+      <p className="text-gray-600 text-xs mt-3">If you have jobs assigned, try clicking <span className="text-orange-400">Sync Now</span> above.</p>
     </div>
   );
   return (

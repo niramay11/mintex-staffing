@@ -465,6 +465,8 @@ export default function PortalClient() {
     const [statusFilter, setStatusFilter] = useState("All");
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [scrolled, setScrolled]       = useState(false);
+    const [syncing, setSyncing]          = useState(false);
+    const [lastSynced, setLastSynced]    = useState<Date | null>(null);
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
@@ -482,16 +484,19 @@ export default function PortalClient() {
             .catch(() => setAuthChecked(true));
     }, []);
 
-    const fetchJobs = useCallback(async () => {
-        setLoading(true); setError(null);
+    const fetchJobs = useCallback(async (force = false) => {
+        if (force) setSyncing(true); else setLoading(true);
+        setError(null);
         try {
-            const res = await fetch("/api/portal/jobs");
+            const url = force ? "/api/portal/jobs?refresh=1" : "/api/portal/jobs";
+            const res = await fetch(url);
             if (!res.ok) throw new Error((await res.json()).error ?? `Error ${res.status}`);
             const data = await res.json();
             setJobs(Array.isArray(data.results) ? data.results : []);
+            setLastSynced(new Date());
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load jobs");
-        } finally { setLoading(false); }
+        } finally { setLoading(false); setSyncing(false); }
     }, []);
 
     useEffect(() => { if (client) fetchJobs(); }, [client, fetchJobs]);
@@ -630,7 +635,26 @@ export default function PortalClient() {
                                 className="w-full pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none"
                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }} />
                         </div>
-                        <span className="text-xs font-semibold ml-auto" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>{filteredJobs.length} result{filteredJobs.length !== 1 ? "s" : ""}</span>
+                        <div className="flex items-center gap-3 ml-auto">
+                            <span className="text-xs font-semibold" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>{filteredJobs.length} result{filteredJobs.length !== 1 ? "s" : ""}</span>
+                            {lastSynced && (
+                                <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>
+                                    Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            )}
+                            <button
+                                onClick={() => fetchJobs(true)}
+                                disabled={syncing}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 disabled:opacity-50"
+                                style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText, fontFamily: GF }}
+                                onMouseEnter={e => { if (!syncing) (e.currentTarget as HTMLElement).style.background = 'rgba(87,238,255,0.14)'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.cyanDim; }}>
+                                <svg className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {syncing ? 'Syncing…' : 'Sync'}
+                            </button>
+                        </div>
                     </motion.div>
                 )}
 
@@ -649,7 +673,7 @@ export default function PortalClient() {
                 {error && !loading && (
                     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="p-6 rounded-2xl text-center" style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}` }}>
                         <p className="text-sm font-semibold mb-3" style={{ color: '#FFB3B3', fontFamily: GF }}>{error}</p>
-                        <button onClick={fetchJobs} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}>Retry</button>
+                        <button onClick={() => fetchJobs()} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}>Retry</button>
                     </motion.div>
                 )}
 
@@ -662,7 +686,17 @@ export default function PortalClient() {
                             </svg>
                         </div>
                         <p className="text-sm font-semibold" style={{ color: 'rgba(170,185,210,0.6)', fontFamily: GF }}>No job postings assigned yet</p>
-                        <p className="text-xs mt-1" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>Contact your Mintex account manager to get access to job postings.</p>
+                        <p className="text-xs mt-1 mb-4" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>Contact your Mintex account manager to get access to job postings.</p>
+                        <button
+                            onClick={() => fetchJobs(true)}
+                            disabled={syncing}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50"
+                            style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText, fontFamily: GF }}>
+                            <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {syncing ? 'Syncing…' : 'Try Sync Now'}
+                        </button>
                     </div>
                 )}
 

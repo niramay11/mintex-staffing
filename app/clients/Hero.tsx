@@ -19,6 +19,7 @@ const HeroSection = () => {
     const [visibleImageIndex, setVisibleImageIndex] = useState(0);
     const [isNavbarWhite, setIsNavbarWhite] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [slideIndex, setSlideIndex] = useState(0);
 
     const imageRefs = [
         useRef<HTMLDivElement>(null),
@@ -36,6 +37,15 @@ const HeroSection = () => {
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
     }, []);
+
+    // Mobile: auto-rotate slideshow every 2.5s
+    useEffect(() => {
+        if (!isMobile) return;
+        const timer = setInterval(() => {
+            setSlideIndex(p => (p + 1) % images.length);
+        }, 2500);
+        return () => clearInterval(timer);
+    }, [isMobile]);
 
     // Navbar scroll colour
     useEffect(() => {

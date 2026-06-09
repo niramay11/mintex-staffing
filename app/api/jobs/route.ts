@@ -3,11 +3,11 @@ import { ceipalFetch, CEIPAL_JOBS_URL } from '@/lib/ceipal';
 
 export const maxDuration = 60;
 
-const PAGE_SIZE     = 50;
-const BATCH_SIZE    = 3;               // 3 parallel pages — fast without triggering rate limit
-const RETRY_DELAY   = 800;            // ms to wait before retrying a failed page
-const CACHE_TTL     = 5 * 60 * 1000;
-const STALE_TTL     = 2 * 60 * 1000;
+const PAGE_SIZE    = 50;
+const BATCH_SIZE   = 3;
+const RETRY_DELAY  = 800;
+const CACHE_TTL    = 5 * 60 * 1000;
+const STALE_TTL    = 2 * 60 * 1000;
 const CACHE_VERSION = 9;
 
 let cache: { data: unknown[]; at: number; v: number } | null = null;
@@ -22,7 +22,6 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Returns parsed results, or null if CEIPAL returned an error/HTML
 async function fetchPage(page: number): Promise<unknown[] | null> {
   try {
     const res  = await ceipalFetch(`${CEIPAL_JOBS_URL}?paging_length=${PAGE_SIZE}&page=${page}`);
@@ -32,20 +31,15 @@ async function fetchPage(page: number): Promise<unknown[] | null> {
     const data    = JSON.parse(text);
     const results = Array.isArray(data?.results) ? data.results : [];
     return results;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// Fetch a single page with one automatic retry on failure
 async function fetchPageWithRetry(page: number): Promise<unknown[]> {
   const first = await fetchPage(page);
   if (first !== null) return first;
-  // Wait then retry once
   await sleep(RETRY_DELAY);
   const second = await fetchPage(page);
   if (second !== null) return second;
-  console.warn(`[jobs] page ${page} failed after retry — skipping`);
   return [];
 }
 
@@ -53,7 +47,6 @@ async function fetchAllJobs(): Promise<unknown[]> {
   const all: unknown[] = [];
 
   for (let start = 1; start <= 300; start += BATCH_SIZE) {
-    // Fetch BATCH_SIZE pages in parallel
     const pages   = Array.from({ length: BATCH_SIZE }, (_, i) => start + i);
     const results = await Promise.all(pages.map(fetchPageWithRetry));
 
@@ -66,7 +59,6 @@ async function fetchAllJobs(): Promise<unknown[]> {
     if (done) break;
   }
 
-  // Filter: JPC prefix, deduplicate, sort newest first
   const seen = new Set<string>();
   const jpc = all.filter(j => {
     const code = String((j as Record<string, unknown>).job_code ?? '');
@@ -81,7 +73,7 @@ async function fetchAllJobs(): Promise<unknown[]> {
     jobCodeNum((a as Record<string, unknown>).job_code)
   );
 
-  console.log(`[jobs] fetched ${all.length} total records, ${jpc.length} JPC jobs`);
+  console.log(`[jobs] fetched ${all.length} total, ${jpc.length} JPC jobs`);
   return jpc;
 }
 
@@ -100,7 +92,6 @@ export async function GET(req: import('next/server').NextRequest) {
     if (forceRefresh) { cache = null; inflight = null; }
 
     const now = Date.now();
-
     if (cache && cache.v !== CACHE_VERSION) { cache = null; inflight = null; }
 
     if (!forceRefresh && cache) {

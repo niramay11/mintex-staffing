@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/portal-auth';
 import { ceipalFetch, CEIPAL_JOBS_URL } from '@/lib/ceipal';
 
-const PAGE_SIZE  = 50;
-const CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 hours
-const STALE_TTL  = 30 * 60 * 1000;     // serve stale for 30 min while refreshing bg
-const BATCH_SIZE = 5;                   // 5 parallel pages at a time
+export const maxDuration = 60;
 
-let cache: { data: Record<string, unknown>[]; at: number } | null = null;
+const PAGE_SIZE    = 50;
+const BATCH_SIZE   = 3;
+const RETRY_DELAY  = 800;
+const CACHE_TTL    = 5 * 60 * 1000;
+const STALE_TTL    = 2 * 60 * 1000;
+const CACHE_VERSION = 1;
+
+let cache: { data: Record<string, unknown>[]; at: number; v: number } | null = null;
 let inflight: Promise<Record<string, unknown>[]> | null = null;
 
 function jobCodeNum(code: unknown): number {
@@ -15,45 +19,66 @@ function jobCodeNum(code: unknown): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-async function fetchPage(page: number): Promise<Record<string, unknown>[]> {
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchPage(page: number): Promise<Record<string, unknown>[] | null> {
   try {
-    const res = await ceipalFetch(`${CEIPAL_JOBS_URL}?paging_length=${PAGE_SIZE}&page=${page}`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data?.results) ? data.results : [];
-  } catch { return []; }
+    const res  = await ceipalFetch(`${CEIPAL_JOBS_URL}?paging_length=${PAGE_SIZE}&page=${page}`);
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) return null;
+    const data    = JSON.parse(text);
+    const results = Array.isArray(data?.results) ? data.results : [];
+    return results as Record<string, unknown>[];
+  } catch { return null; }
+}
+
+async function fetchPageWithRetry(page: number): Promise<Record<string, unknown>[]> {
+  const first = await fetchPage(page);
+  if (first !== null) return first;
+  await sleep(RETRY_DELAY);
+  const second = await fetchPage(page);
+  if (second !== null) return second;
+  return [];
 }
 
 async function fetchAllJobs(): Promise<Record<string, unknown>[]> {
   const all: Record<string, unknown>[] = [];
 
-  for (let start = 1; start <= 200; start += BATCH_SIZE) {
+  for (let start = 1; start <= 300; start += BATCH_SIZE) {
     const pages   = Array.from({ length: BATCH_SIZE }, (_, i) => start + i);
-    const results = await Promise.all(pages.map(fetchPage));
+    const results = await Promise.all(pages.map(fetchPageWithRetry));
+
     let done = false;
-    for (const r of results) {
-      if (r.length === 0) { done = true; break; }
-      all.push(...r);
-      if (r.length < PAGE_SIZE) { done = true; break; }
+    for (const pageResults of results) {
+      if (pageResults.length === 0) { done = true; break; }
+      all.push(...pageResults);
+      if (pageResults.length < PAGE_SIZE) { done = true; break; }
     }
     if (done) break;
   }
 
-  const jpc = all.filter(j => String(j.job_code ?? '').startsWith('JPC'));
   const seen = new Set<string>();
-  const deduped = jpc.filter(j => {
-    const c = String(j.job_code ?? '');
-    if (seen.has(c)) return false;
-    seen.add(c); return true;
+  const jpc = all.filter(j => {
+    const code = String(j.job_code ?? '');
+    if (!code.startsWith('JPC')) return false;
+    if (seen.has(code)) return false;
+    seen.add(code);
+    return true;
   });
-  deduped.sort((a, b) => jobCodeNum(b.job_code) - jobCodeNum(a.job_code));
-  return deduped;
+
+  jpc.sort((a, b) => jobCodeNum(b.job_code) - jobCodeNum(a.job_code));
+  console.log(`[portal/jobs] fetched ${all.length} total, ${jpc.length} JPC jobs`);
+  return jpc;
 }
 
 function triggerRefresh() {
   if (inflight) return;
   inflight = fetchAllJobs()
-    .then(d => { cache = { data: d, at: Date.now() }; return d; })
+    .then(data  => { cache = { data, at: Date.now(), v: CACHE_VERSION }; return data; })
+    .catch(err  => { console.error('[portal/jobs] refresh failed:', err); return cache?.data ?? []; })
     .finally(() => { inflight = null; });
 }
 
@@ -64,15 +89,18 @@ const ALWAYS_STRIP = [
 ];
 
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get('portal_token')?.value;
+  const token  = req.cookies.get('portal_token')?.value;
   const client = await verifySession(token ?? '') as Record<string, unknown> | null;
   if (!client) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const now = Date.now();
+    const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1';
+    if (forceRefresh) { cache = null; inflight = null; }
 
-    // Stale-while-revalidate: serve cache instantly, refresh in background
-    if (cache) {
+    const now = Date.now();
+    if (cache && cache.v !== CACHE_VERSION) { cache = null; inflight = null; }
+
+    if (!forceRefresh && cache) {
       const age = now - cache.at;
       if (age >= CACHE_TTL && age < CACHE_TTL + STALE_TTL) triggerRefresh();
       else if (age >= CACHE_TTL + STALE_TTL) { cache = null; }
@@ -109,10 +137,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ results: stripped, count: stripped.length });
   } catch (err) {
-    if (cache) {
-      // Return stale on error rather than failing
-      return NextResponse.json({ results: cache.data, count: cache.data.length });
-    }
+    console.error('[portal/jobs] GET error:', err);
+    if (cache) return NextResponse.json({ results: cache.data, count: cache.data.length });
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

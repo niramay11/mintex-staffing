@@ -730,6 +730,63 @@ export default function NetworkSection() {
 
   const handleGlobeClick = () => router.push("/served-sectors");
 
+  // ── Mobile: animated services grid (replaces WebGL globe entirely) ─────
+  if (isMobile) {
+    return (
+      <section className="w-full bg-black py-20 px-5">
+        {/* Heading */}
+        <div className="text-center mb-10">
+          <p className="text-xs font-mono tracking-[0.25em] uppercase text-cyan-400 mb-2">
+            Our Reach
+          </p>
+          <h2 className="text-3xl font-bold text-white font-bebas tracking-wide">
+            Industries We Serve
+          </h2>
+          <div className="mx-auto mt-3 w-12 h-[2px] bg-cyan-400/50 rounded-full" />
+        </div>
+
+        {/* 2-column pill grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {services.map((s, i) => (
+            <div
+              key={i}
+              onClick={() => router.push('/served-sectors')}
+              style={{
+                animationDelay: `${i * 0.07}s`,
+                animationFillMode: 'both',
+              }}
+              className="animate-fadeInUp cursor-pointer flex items-center gap-2.5 px-3 py-3 rounded-2xl border border-cyan-500/25 bg-white/5 active:scale-95 transition-transform"
+            >
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#00E6FF',
+                  boxShadow: '0 0 8px rgba(0,230,255,1)',
+                  flexShrink: 0,
+                }}
+              />
+              <span className="text-[11px] font-semibold text-cyan-100 leading-tight">
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="flex justify-center mt-10">
+          <button
+            onClick={() => router.push('/served-sectors')}
+            className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-cyan-300 border border-cyan-500/30 bg-cyan-500/5 active:scale-95 transition-transform"
+          >
+            Explore All Sectors
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <section
