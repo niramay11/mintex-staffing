@@ -200,7 +200,7 @@ export default function RefinedFiveCardDiamond() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
-        className="relative w-full md:w-[1000px] h-auto md:h-[900px] flex flex-col md:block items-center gap-6 md:gap-0 mt-10 md:mt-0"
+        className="relative w-full md:max-w-[1000px] h-auto md:h-[900px] flex flex-col md:block items-center gap-6 md:gap-0 mt-10 md:mt-0"
         style={{ transformStyle: "preserve-3d" }}
       >
         {services.map((s, i) => (

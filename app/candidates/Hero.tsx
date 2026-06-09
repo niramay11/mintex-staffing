@@ -50,7 +50,7 @@ const Hero = () => {
                 </motion.span>
             </motion.h1>
 
-            <div className="relative w-full max-w-6xl mx-auto h-[400px] md:h-[600px] flex items-end justify-center gap-8 md:gap-20">
+            <div className="relative w-full max-w-6xl mx-auto min-h-[400px] h-auto md:h-[600px] flex items-end justify-center gap-8 md:gap-20">
 
                 {/* Man on Chair - Drops from top then floats */}
                 <motion.div

@@ -324,7 +324,8 @@ export default function NetworkSection() {
       const STAGGER      = 0.035;
 
       // Safe screen bounds — account for half pill width so pills never bleed off-screen
-      const PILL_HALF  = isMobile ? 72 : 108; // half of max pill width
+      // On mobile pills can be up to 38vw wide so half = ~19% of container width
+      const PILL_HALF  = isMobile ? Math.round(containerRect.width * 0.20) : 108;
       const topSafe    = 110;                  // well below navbar (pill center ≥ 110px from top)
       const bottomSafe = containerRect.height - 30;
       const leftSafe   = PILL_HALF;

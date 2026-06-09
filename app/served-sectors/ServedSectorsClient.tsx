@@ -165,7 +165,7 @@ const ServedSectorsClient = () => {
                         <div className="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 md:gap-10 px-4 md:px-8 items-center h-full">
 
                             {/* ── Left sidebar ── */}
-                            <aside className="hidden md:flex col-span-3 flex-col gap-6 font-gilroy self-center">
+                            <aside className="hidden sm:flex col-span-2 md:col-span-3 flex-col gap-6 font-gilroy self-center">
                                 <h2 className="text-6xl md:text-8xl font-bold text-white/10 tracking-tighter leading-none select-none">
                                     {String(index + 1).padStart(2, '0')}
                                 </h2>
@@ -186,7 +186,7 @@ const ServedSectorsClient = () => {
                             </aside>
 
                             {/* ── Main content ── */}
-                            <div className="col-span-12 md:col-span-9 font-gilroy grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-center">
+                            <div className="col-span-12 sm:col-span-10 md:col-span-9 font-gilroy grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-center">
 
                                 {/* Left: title + description */}
                                 <div className="lg:col-span-3 space-y-4">

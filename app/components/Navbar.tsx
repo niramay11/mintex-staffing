@@ -138,7 +138,7 @@ export default function Navbar() {
                 width={scrolled ? 200 : 240}
                 height={30}
                 priority
-                className={`transition-all duration-300 ${scrolled ? "brightness-0" : ""}`}
+                className={`transition-all duration-300 w-[120px] sm:w-[160px] lg:w-auto ${scrolled ? "brightness-0" : ""}`}
               />
             </Link>
         </motion.div>

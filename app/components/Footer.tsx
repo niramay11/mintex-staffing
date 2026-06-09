@@ -142,7 +142,7 @@ export default function Footer() {
                             </div>
 
                             {/* RIGHT: NAVIGATION LINKS */}
-                            <div className="grid grid-cols-2 gap-x-12 gap-y-3 text-center lg:text-left text-sm md:text-base">
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:gap-x-12 text-center lg:text-left text-sm md:text-base">
                                 <div className="flex flex-col gap-2.5">
                                     <Link href="/about-us" className="text-gray-300 hover:text-white font-medium transition-colors">About US</Link>
                                     <Link href="/clients" className="text-gray-300 hover:text-white font-medium transition-colors">Clients</Link>

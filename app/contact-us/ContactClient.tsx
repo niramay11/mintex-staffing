@@ -1,7 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Mail, Phone, Building, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StyledMapBackground from "./StyledMapBackground";
@@ -9,6 +9,15 @@ import StyledMapBackground from "./StyledMapBackground";
 const ContactClient = () => {
     const [showInfo,   setShowInfo]   = useState(false);
     const [pinPos,     setPinPos]     = useState<{ x: number; y: number } | null>(null);
+    // true when viewport >= 1024px (lg) — desktop gets floating popup, mobile gets inline
+    const [isDesktop,  setIsDesktop]  = useState(false);
+
+    useEffect(() => {
+        const check = () => setIsDesktop(window.innerWidth >= 1024);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
     const [formData, setFormData] = useState({ name: "", email: "", message: "" });
     const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [errorMessage, setErrorMessage] = useState("");
@@ -48,11 +57,13 @@ const ContactClient = () => {
     return (
         <div className="min-h-screen relative overflow-hidden font-sans text-white pt-28 md:pt-32 pb-12 px-4 md:px-8 lg:px-16 bg-[#0e1626]">
 
-            {/* --- BACKGROUND LAYER --- */}
-            <div className="absolute inset-0">
+            {/* --- BACKGROUND LAYER ---
+                Mobile: z-0 creates stacking context → pin stays below form
+                Desktop (lg+): z-auto → pin can be clicked on the right half */}
+            <div className="absolute inset-0 z-0 lg:z-auto">
                 <StyledMapBackground
                     onPinReady={(x, y) => setPinPos({ x, y })}
-                    onPinClick={() => setShowInfo(v => !v)}
+                    onPinClick={() => { if (isDesktop) setShowInfo(v => !v); }}
                 />
             </div>
 
@@ -64,14 +75,16 @@ const ContactClient = () => {
               }}
             />
 
-            {/* --- CONTENT LAYER --- */}
-            <div className="max-w-7xl mx-auto relative z-10 w-full">
+            {/* --- CONTENT LAYER ---
+                pointer-events-none on wrapper so the empty right half (pin area on desktop)
+                doesn't block clicks. pointer-events-auto is re-enabled on children. */}
+            <div className="max-w-7xl mx-auto relative z-20 w-full pointer-events-none">
                 {/* Header — glass card */}
                 <motion.div
                     initial={{ opacity: 0, y: -30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.3 }}
-                    className="mb-8 md:mb-10 inline-block"
+                    className="mb-8 md:mb-10 inline-block pointer-events-auto"
                     style={{
                         background: 'rgba(255,255,255,0.04)',
                         backdropFilter: 'blur(20px)',
@@ -112,13 +125,13 @@ const ContactClient = () => {
                     </h1>
                 </motion.div>
 
-                {/* Contact Form only */}
+                {/* Contact Form + Info */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                     <motion.div
                         initial={{ opacity: 0, x: -50 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, delay: 0.2 }}
-                        className="w-full max-w-lg"
+                        className="w-full max-w-lg pointer-events-auto"
                     >
                         <form onSubmit={handleSubmit} className="space-y-6 bg-[#051116]/80 p-8 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xs relative">
                             <div className="absolute inset-0 rounded-3xl shadow-[0_0_60px_-15px_rgba(8,145,178,0.5)] m-0 pointer-events-none z-[-1]"></div>
@@ -199,13 +212,77 @@ const ContactClient = () => {
                                 <p className="text-green-400 text-sm text-center mt-2">Thank you! We'll get back to you shortly.</p>
                             )}
                         </form>
+                        {/* Mobile-only: trigger button + animated address reveal below form
+                            Hidden on desktop — desktop uses the floating popup via pin click */}
+                        {!isDesktop && <div className="mt-6">
+                            <button
+                                onClick={() => setShowInfo(v => !v)}
+                                className="w-full py-3 px-6 rounded-xl text-sm font-semibold uppercase tracking-widest text-cyan-300 border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all"
+                            >
+                                {showInfo ? "Hide Location Info" : "View Our Location"}
+                            </button>
+
+                            <AnimatePresence>
+                                {showInfo && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 16 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 16 }}
+                                        transition={{ duration: 0.35, ease: "easeOut" }}
+                                        className="mt-4"
+                                        style={{
+                                            background: 'rgba(5, 17, 22, 0.95)',
+                                            backdropFilter: 'blur(20px)',
+                                            WebkitBackdropFilter: 'blur(20px)',
+                                            border: '1px solid rgba(147,197,253,0.2)',
+                                            borderRadius: '20px',
+                                            padding: '24px',
+                                            boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+                                        }}
+                                    >
+                                        <h2 className="text-base font-bold text-white uppercase tracking-widest mb-5 pb-3 border-b border-white/10">
+                                            Our Location
+                                        </h2>
+                                        <div className="space-y-5">
+                                            <div className="flex items-start gap-4">
+                                                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+                                                    <Building className="w-5 h-5 text-cyan-400" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-white mb-1 uppercase tracking-wider">Office Address</h3>
+                                                    <p className="text-gray-300 text-sm leading-relaxed">2163 Oak Tree Rd, Edison, NJ 08820</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-4">
+                                                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+                                                    <Phone className="w-5 h-5 text-cyan-400" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-white mb-1 uppercase tracking-wider">Call Us</h3>
+                                                    <p className="text-gray-300 text-sm">+1 (732) 983-5723</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-4">
+                                                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+                                                    <Mail className="w-5 h-5 text-cyan-400" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-white mb-1 uppercase tracking-wider">Email</h3>
+                                                    <p className="text-gray-300 text-sm">info@mintexstaffing.com</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>}
                     </motion.div>
                 </div>
             </div>
 
-            {/* --- INFO CARD POPUP — at root level, above the pin (z-100) --- */}
+            {/* --- INFO CARD POPUP — desktop only, triggered by pin click --- */}
             <AnimatePresence>
-                {showInfo && (
+                {isDesktop && showInfo && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.92, y: 24 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -213,9 +290,9 @@ const ContactClient = () => {
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         style={{
                             position: 'absolute',
-                            left: pinPos ? pinPos.x + 150 : '40%',
-                            top: pinPos ? pinPos.y - 60 : '20%',
-                            width: 'min(420px, 55vw)',
+                            left: pinPos ? Math.min(pinPos.x + 20, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 260) : '5%',
+                            top: pinPos ? Math.max(pinPos.y - 60, 80) : '20%',
+                            width: 'min(420px, 90vw)',
                             zIndex: 100,
                             background: 'rgba(5, 17, 22, 0.97)',
                             backdropFilter: 'blur(24px)',
@@ -249,7 +326,7 @@ const ContactClient = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-bold text-white mb-1 uppercase tracking-wider">Office Address</h3>
-                                    <p className="text-gray-300 text-base leading-relaxed whitespace-nowrap">
+                                    <p className="text-gray-300 text-base leading-relaxed break-words">
                                         2163 Oak Tree Rd, Edison, NJ 08820
                                     </p>
                                 </div>

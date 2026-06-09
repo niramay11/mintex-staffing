@@ -197,12 +197,11 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         <span
           style={{
             position:      "absolute",
-            left:          labelPos.x,
+            left:          Math.min(labelPos.x, (wrapRef.current?.offsetWidth ?? 9999) - 120),
             top:           labelPos.y,
             transform:     "translate(-50%, -50%)",
-            whiteSpace:    "nowrap",
             fontFamily:    "'Inter','Helvetica Neue',Arial,sans-serif",
-            fontSize:      "18px",
+            fontSize:      "clamp(12px, 3.5vw, 18px)",
             fontWeight:    700,
             letterSpacing: "2px",
             color:         "#ffffff",
@@ -214,6 +213,8 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
             pointerEvents: "none",
             userSelect:    "none",
             zIndex:        20,
+            maxWidth:      "40vw",
+            textAlign:     "center",
           }}
         >
           MINTEX STAFFING
