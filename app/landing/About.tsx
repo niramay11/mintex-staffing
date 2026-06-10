@@ -88,14 +88,14 @@ const About = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        className="absolute w-full h-full md:h-max md:w-[40%] left-0 bottom-0 opacity-45 md:opacity-100 md:translate-x-[75%]"
+        className="absolute left-0 bottom-0 h-auto w-[70%] translate-x-[21%] opacity-25 sm:w-[55%] sm:translate-x-[41%] sm:opacity-30 md:w-[40%] md:translate-x-[75%] md:opacity-100"
       >
         <Image
           src={Mintex}
           alt="Mintex Decorative Logo"
           width={800}
           height={400}
-          className="w-full h-full object-contain"
+          className="w-full h-auto object-contain"
         />
       </motion.div>
 
