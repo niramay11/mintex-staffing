@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface LabelInfo { x: number; y: number }
 interface Props {
@@ -126,14 +126,24 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         const pad = 0.001;
         const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
         const q   = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
+        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
 
-        fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`)
-          .then(r => r.json())
-          .then((data: any) => {
-            try { sessionStorage.setItem(ROAD_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-            drawRoads(data);
-          })
-          .catch(() => {});
+        const fetchRoads = (attempt: number) => {
+          fetch(url)
+            .then(r => r.json())
+            .then((data: any) => {
+              try { sessionStorage.setItem(ROAD_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+              drawRoads(data);
+            })
+            .catch(() => {
+              // Retry once after 1 second if first attempt fails
+              if (attempt < 2 && mapInstanceRef.current) {
+                setTimeout(() => fetchRoads(attempt + 1), 1000);
+              }
+            });
+        };
+
+        fetchRoads(1);
       });
     });
 
@@ -192,16 +202,16 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         </div>
       )}
 
-      {/* MINTEX STAFFING label */}
+      {/* MINTEX STAFFING label — directly below pin, clamped so never clipped */}
       {labelPos && (
         <span
           style={{
             position:      "absolute",
-            left:          Math.min(labelPos.x, (wrapRef.current?.offsetWidth ?? 9999) - 120),
+            left:          Math.max(72, Math.min(labelPos.x, (wrapRef.current?.offsetWidth ?? 400) - 72)),
             top:           labelPos.y,
-            transform:     "translate(-50%, -50%)",
+            transform:     "translateX(-50%)",
             fontFamily:    "'Inter','Helvetica Neue',Arial,sans-serif",
-            fontSize:      "clamp(12px, 3.5vw, 18px)",
+            fontSize:      "clamp(11px, 3vw, 16px)",
             fontWeight:    700,
             letterSpacing: "2px",
             color:         "#ffffff",
@@ -213,8 +223,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
             pointerEvents: "none",
             userSelect:    "none",
             zIndex:        20,
-            maxWidth:      "40vw",
-            textAlign:     "center",
+            whiteSpace:    "nowrap",
           }}
         >
           MINTEX STAFFING

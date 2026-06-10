@@ -8,7 +8,6 @@ import StyledMapBackground from "./StyledMapBackground";
 
 const ContactClient = () => {
     const [showInfo,  setShowInfo]  = useState(false);
-    const [popupPos,  setPopupPos]  = useState<{ x: number; y: number } | null>(null);
     const [isDesktop, setIsDesktop] = useState(false);
     const [formData,  setFormData]  = useState({ name: "", email: "", message: "" });
     const [status,    setStatus]    = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -166,43 +165,34 @@ const ContactClient = () => {
                     </h1>
                 </motion.div>
 
-                {/* 2. Full-width map — pin clickable, popup centered on map */}
+                {/* 2. Full-width map — pin clickable */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
-                    className="mx-4 mb-8"
+                    className="mx-4 mb-4"
                     style={{ position: 'relative', height: '380px', borderRadius: '20px', overflow: 'hidden' }}
                 >
                     <StyledMapBackground
                         onPinReady={() => {}}
                         onPinClick={() => setShowInfo(v => !v)}
                     />
-
-                    {/* Popup centered on the map — always fits on screen */}
-                    <AnimatePresence>
-                        {showInfo && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.25 }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '50%',
-                                    left: '50%',
-                                    transform: 'translate(-50%, -50%)',
-                                    width: 'calc(100% - 32px)',
-                                    maxWidth: '360px',
-                                    zIndex: 50,
-                                }}
-                                className="relative"
-                            >
-                                <LocationCard onClose={() => setShowInfo(false)} />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
                 </motion.div>
+
+                {/* Location info — appears BELOW the map, never covering it */}
+                <AnimatePresence>
+                    {showInfo && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.25 }}
+                            className="mx-4 mb-6 relative"
+                        >
+                            <LocationCard onClose={() => setShowInfo(false)} />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* 3. Contact form — scroll-revealed */}
                 <motion.div
@@ -229,14 +219,7 @@ const ContactClient = () => {
             <div className="absolute inset-0 z-0 lg:z-auto">
                 <StyledMapBackground
                     onPinReady={() => {}}
-                    onPinClick={(clientX, clientY) => {
-                        const popupWidth = 440;
-                        const popupHeight = 340;
-                        const x = Math.min(clientX + 60, window.innerWidth - popupWidth - 16);
-                        const y = Math.min(Math.max(clientY - popupHeight / 2, 120), window.innerHeight - popupHeight - 16);
-                        setPopupPos({ x, y });
-                        setShowInfo(v => !v);
-                    }}
+                    onPinClick={() => setShowInfo(v => !v)}
                 />
             </div>
 
@@ -269,7 +252,7 @@ const ContactClient = () => {
                     </h1>
                 </motion.div>
 
-                {/* Form */}
+                {/* Form + location card side by side — location card is in the grid, never over the map */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                     <motion.div
                         initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
@@ -278,30 +261,23 @@ const ContactClient = () => {
                     >
                         <FormBlock />
                     </motion.div>
+
+                    {/* Location info — right column, slides in when pin is clicked */}
+                    <AnimatePresence>
+                        {showInfo && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 40 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 40 }}
+                                transition={{ duration: 0.3, ease: "easeOut" }}
+                                className="w-full max-w-lg pointer-events-auto relative"
+                            >
+                                <LocationCard onClose={() => setShowInfo(false)} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
-
-            {/* Desktop floating popup */}
-            <AnimatePresence>
-                {showInfo && popupPos && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.92, y: 24 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.92, y: 24 }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                        style={{
-                            position: 'fixed',
-                            left: popupPos.x,
-                            top: popupPos.y,
-                            width: 'min(420px, 90vw)',
-                            zIndex: 100,
-                        }}
-                        className="relative"
-                    >
-                        <LocationCard onClose={() => setShowInfo(false)} />
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };
