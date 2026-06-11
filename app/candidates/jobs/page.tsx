@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { getAllJobs } from '@/lib/data-cache';
 import JobsClient from './JobsClient';
 
 export const metadata: Metadata = {
@@ -6,9 +7,7 @@ export const metadata: Metadata = {
     description: 'Browse available job opportunities',
 };
 
-const JobsPage = () => {
-    return <JobsClient />;
-};
-
-export default JobsPage;
-
+export default async function JobsPage() {
+    const jobs = await getAllJobs();
+    return <JobsClient initialJobs={jobs} />;
+}

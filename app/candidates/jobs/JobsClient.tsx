@@ -482,9 +482,9 @@ const JobDetailView = ({ job, onBack, onApply }: { job: Job; onBack: () => void;
 };
 
 // ── Main component ───────────────────────────────────────────────────────────
-const JobsClient = () => {
-    const [jobs, setJobs]               = useState<Job[]>([]);
-    const [loading, setLoading]         = useState(true);
+const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }) => {
+    const [jobs, setJobs]               = useState<Job[]>((initialJobs as Job[] | undefined) ?? []);
+    const [loading, setLoading]         = useState(!initialJobs);
     const [hasMore, setHasMore]         = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [, setTotalCount]   = useState<number | null>(null);
@@ -547,7 +547,11 @@ const JobsClient = () => {
         } finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { fetchJobs(currentPage); }, [currentPage, fetchJobs]);
+    useEffect(() => {
+        // Skip initial fetch on page 1 when server already provided jobs
+        if (currentPage === 1 && initialJobs && jobs.length > 0) return;
+        fetchJobs(currentPage);
+    }, [currentPage, fetchJobs]);
 
     // Filter Active jobs client-side — same logic as admin panel
     const activeJobs = useMemo(() => jobs.filter(isActiveJob), [jobs]);
