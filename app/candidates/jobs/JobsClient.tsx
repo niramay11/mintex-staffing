@@ -73,6 +73,48 @@ const GF = 'var(--font-gilroy)';
 const stripZip = (loc: string): string =>
     loc.replace(/,?\s*\b\d{5}(-\d{4})?\b/g, '').replace(/,\s*$/, '').trim();
 
+// Format pay rate/salary into a clean human-readable string
+const fmtPayGlobal = (raw: string): string | null => {
+    const r = (raw || '').trim();
+    if (!r || r === '0' || r.toLowerCase() === 'n/a') return null;
+
+    // Already has text like "/hr", "/year", "per hour" etc — clean up spacing & casing
+    const lower = r.toLowerCase();
+    const isHourly = /\bhr\b|\/hr|per\s*hour|hourly/i.test(r);
+    const isYearly = /\byr\b|\/yr|\/year|per\s*year|annual|salary/i.test(r);
+
+    // Extract all numbers from the string
+    const nums = r.replace(/[$,\s]/g, '').match(/\d+(\.\d+)?/g);
+    if (!nums) return r; // return as-is if no numbers found
+
+    const fmt = (n: number): string => {
+        if (n >= 1000) return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+        return `$${n.toLocaleString()}`;
+    };
+
+    const vals = nums.map(n => parseFloat(n));
+    const isHr = isHourly || (!isYearly && vals[0] < 500);
+
+    let display: string;
+    if (vals.length >= 2) {
+        display = `${fmt(vals[0])} – ${fmt(vals[1])}`;
+    } else {
+        display = fmt(vals[0]);
+    }
+
+    // Append suffix only if not already in original string
+    if (!isHourly && !isYearly) {
+        display += isHr ? ' / hr' : ' / yr';
+    } else if (isHourly) {
+        display += ' / hr';
+    } else {
+        display += ' / yr';
+    }
+
+    // Strip the original text noise if we rebuilt it
+    return lower.includes('benefit') || lower.includes('+') ? `${display} + Benefits` : display;
+};
+
 const LOCATION_OPTIONS = [
     'Remote',
     'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
@@ -147,13 +189,7 @@ const FilterSection = ({ label, options, selected, onToggle, defaultExpanded = t
 
 // ── Job Detail Page View ─────────────────────────────────────────────────────
 const JobDetailView = ({ job, onBack, onApply }: { job: Job; onBack: () => void; onApply: (job: Job) => void }) => {
-    const fmtPay = (j: Job) => {
-        const r = (j.pay_rate___salary || '').trim();
-        if (!r) return null;
-        if (/[a-zA-Z/]/.test(r)) return r;
-        const n = parseFloat(r.replace(/[,$\s]/g, ''));
-        return isNaN(n) ? r : `$${n.toLocaleString()}${n < 500 ? '/hr' : '/yr'}`;
-    };
+    const fmtPay = (j: Job) => fmtPayGlobal(j.pay_rate___salary || '');
     const fmtDate = (s: string) => {
         if (!s) return null;
         try {
@@ -1024,8 +1060,8 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
 
                                                             {/* Salary */}
                                                             {(() => {
-                                                                const pay = (job.pay_rate___salary || '').trim();
-                                                                if (!pay || pay === '0' || pay.toLowerCase() === 'n/a') return null;
+                                                                const pay = fmtPayGlobal(job.pay_rate___salary || '');
+                                                                if (!pay) return null;
                                                                 return (
                                                                     <div className="mb-4">
                                                                         <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold"
