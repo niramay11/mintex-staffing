@@ -43,7 +43,6 @@ const REMOTE_COLORS: Record<string, { bg: string; border: string; color: string;
 };
 
 const WORK_AUTH = ['US Citizen', 'Green Card', 'H1B', 'H4 EAD', 'OPT', 'CPT', 'TN Visa', 'E3 Visa', 'L2 EAD', 'Other'];
-const COUNTRIES = ['United States', 'Canada', 'United Kingdom', 'India', 'Australia', 'Germany', 'France', 'Singapore', 'UAE', 'Other'];
 const US_STATES = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'];
 
 interface FormData {
@@ -51,30 +50,25 @@ interface FormData {
     email: string;
     mobileNumber: string;
     workAuthorization: string;
-    country: string;
     state: string;
     city: string;
-    address: string;
     zipCode: string;
-    jobTitle: string;
     availability: string;
-    comments: string;
     relocation: 'Yes' | 'No';
     videoLink: string;
     signatureType: 'type' | 'draw';
     signatureText: string;
-    signatureDataUrl: string;   // used when draw mode
+    signatureDataUrl: string;
     agreedToTerms: boolean;
     resume: File | null;
 }
 
-const defaultForm = (jobs: Job[]): FormData => ({
+const defaultForm = (): FormData => ({
     fullName: '',
     email: '', mobileNumber: '',
-    workAuthorization: '', country: 'United States',
-    state: '', city: '', address: '', zipCode: '',
-    jobTitle: jobs[0]?.job_title ?? '',
-    availability: '', comments: '',
+    workAuthorization: '',
+    state: '', city: '', zipCode: '',
+    availability: '',
     relocation: 'No', videoLink: '',
     signatureType: 'type', signatureText: '', signatureDataUrl: '',
     agreedToTerms: false, resume: null,
@@ -123,7 +117,7 @@ const fmtDate = (s: string) => {
 
 // ── Main Component ───────────────────────────────────────────────────────────
 const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess }) => {
-    const [form, setForm]           = useState<FormData>(defaultForm(jobs));
+    const [form, setForm]           = useState<FormData>(defaultForm());
     const [errors, setErrors]       = useState<Partial<Record<keyof FormData, string>>>({});
     const [submitting, setSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -139,9 +133,7 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
         if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Valid email required';
         if (!form.mobileNumber.trim() || !/^\d{7,15}$/.test(form.mobileNumber.replace(/[\s\-()]/g, ''))) e.mobileNumber = 'Valid number required';
         if (!form.workAuthorization)   e.workAuthorization = 'Required';
-        if (!form.country)             e.country      = 'Required';
         if (!form.city.trim())         e.city         = 'Required';
-        if (!form.jobTitle.trim())     e.jobTitle     = 'Required';
         if (!form.availability.trim()) e.availability = 'Required';
         if (!form.resume)              e.resume       = 'Resume required';
         if (form.signatureType === 'type' && !form.signatureText.trim())
@@ -162,14 +154,10 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
             fd.append('email',            form.email);
             fd.append('mobileNumber',     form.mobileNumber);
             fd.append('workAuthorization',form.workAuthorization);
-            fd.append('country',          form.country);
             fd.append('state',            form.state);
             fd.append('city',             form.city);
-            fd.append('address',          form.address);
             fd.append('zipCode',          form.zipCode);
-            fd.append('jobTitle',         form.jobTitle);
             fd.append('availability',     form.availability);
-            fd.append('comments',         form.comments);
             fd.append('relocation',       form.relocation);
             fd.append('videoLink',        form.videoLink);
             fd.append('signatureText',    form.signatureType === 'type' ? form.signatureText : '[Drawn Signature]');
@@ -290,8 +278,8 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                 </div>
                             </div>
 
-                            {/* Row 2: Mobile / Work Auth / Country */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* Row 2: Mobile / Work Auth */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <FieldLabel required>Mobile Number</FieldLabel>
                                     <input value={form.mobileNumber} onChange={e => set('mobileNumber', e.target.value)}
@@ -309,18 +297,9 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                     </select>
                                     <FieldError msg={errors.workAuthorization} />
                                 </div>
-                                <div>
-                                    <FieldLabel required>Country</FieldLabel>
-                                    <select value={form.country} onChange={e => set('country', e.target.value)}
-                                        style={selectStyle(errors.country)}>
-                                        <option value="" style={{ background: '#06091e' }}>Select</option>
-                                        {COUNTRIES.map(o => <option key={o} value={o} style={{ background: '#06091e' }}>{o}</option>)}
-                                    </select>
-                                    <FieldError msg={errors.country} />
-                                </div>
                             </div>
 
-                            {/* Row 3: State / City / Address */}
+                            {/* Row 3: State / City / Zip */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <FieldLabel>State</FieldLabel>
@@ -339,36 +318,16 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                     <FieldError msg={errors.city} />
                                 </div>
                                 <div>
-                                    <FieldLabel>Address</FieldLabel>
-                                    <input value={form.address} onChange={e => set('address', e.target.value)}
-                                        placeholder="Address" style={inputStyle()}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                </div>
-                            </div>
-
-                            {/* Row 4: Zip / Job Title / Email */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
                                     <FieldLabel>Zip Code</FieldLabel>
                                     <input value={form.zipCode} onChange={e => set('zipCode', e.target.value)}
                                         placeholder="Zip Code" style={inputStyle()}
                                         onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
                                         onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
                                 </div>
-                                <div>
-                                    <FieldLabel required>Job Title</FieldLabel>
-                                    <select value={form.jobTitle} onChange={e => set('jobTitle', e.target.value)}
-                                        style={selectStyle(errors.jobTitle)}>
-                                        <option value="" style={{ background: '#06091e' }}>Select Job Title</option>
-                                        {(allJobs && allJobs.length > 0 ? allJobs : jobs).map(j => (
-                                            <option key={j.job_code} value={j.job_title} style={{ background: '#06091e' }}>
-                                                {j.job_title} ({j.job_code})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <FieldError msg={errors.jobTitle} />
-                                </div>
+                            </div>
+
+                            {/* Row 4: Email */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <FieldLabel required>Email</FieldLabel>
                                     <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
@@ -377,10 +336,6 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                         onBlur={e => { e.target.style.borderColor = errors.email ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
                                     <FieldError msg={errors.email} />
                                 </div>
-                            </div>
-
-                            {/* Row 5: Availability / Comments / Relocation */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <FieldLabel required>Availability</FieldLabel>
                                     <input value={form.availability} onChange={e => set('availability', e.target.value)}
@@ -389,13 +344,10 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                         onBlur={e => { e.target.style.borderColor = errors.availability ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
                                     <FieldError msg={errors.availability} />
                                 </div>
-                                <div>
-                                    <FieldLabel>Comments</FieldLabel>
-                                    <input value={form.comments} onChange={e => set('comments', e.target.value)}
-                                        placeholder="Additional comments" style={inputStyle()}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                </div>
+                            </div>
+
+                            {/* Row 5: Relocation */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <FieldLabel>Relocation</FieldLabel>
                                     <div className="flex items-center gap-5 h-[42px]">
@@ -574,48 +526,36 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                         </div>
                     </div>
 
-                    {/* ── RIGHT: Job Posting Details sidebar ── */}
-                    <div className="lg:w-72 flex-shrink-0">
-                        <div className="lg:sticky lg:top-6 space-y-4">
-                            {jobs.map(job => {
-                                const rc = REMOTE_COLORS[job.remote_job] ?? REMOTE_COLORS['On-site'];
-                                return (
-                                    <div key={job.job_code} className="rounded-2xl overflow-hidden"
-                                        style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)' }}>
-                                        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                            <h3 className="text-sm font-black" style={{ color: '#e8eeff', fontFamily: GF }}>Job Posting Details</h3>
+                    {/* ── RIGHT: Applying For sidebar ── */}
+                    <div className="lg:w-64 flex-shrink-0">
+                        <div className="lg:sticky lg:top-6">
+                            <div className="rounded-2xl overflow-hidden"
+                                style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)' }}>
+                                <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <h3 className="text-sm font-black" style={{ color: '#e8eeff', fontFamily: GF }}>
+                                        Applying For
+                                        <span className="ml-2 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                                            style={{ background: C.coralDim, color: C.coral, border: `1px solid ${C.coralBdr}` }}>
+                                            {jobs.length} {jobs.length === 1 ? 'role' : 'roles'}
+                                        </span>
+                                    </h3>
+                                </div>
+                                <div className="px-5 py-3 space-y-2">
+                                    {jobs.map((job, i) => (
+                                        <div key={job.job_code} className="flex items-center gap-3 py-2"
+                                            style={{ borderBottom: i < jobs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-black"
+                                                style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}>
+                                                {i + 1}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[13px] font-bold leading-snug truncate" style={{ color: '#e8eeff', fontFamily: GF }}>{job.job_title}</p>
+                                                <p className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(87,238,255,0.5)' }}>{job.job_code}</p>
+                                            </div>
                                         </div>
-                                        <div className="px-5 py-4 space-y-4">
-                                            <DetailRow icon="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" label="Job Code" value={job.job_code} mono />
-                                            <DetailRow icon="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" label="Position" value={job.job_title} />
-                                            <DetailRow icon="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" label="Location" value={job.location || [job.city, job.states].filter(Boolean).join(', ') || 'N/A'} />
-                                            {job.job_type && <DetailRow icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" label="Job Type" value={job.job_type} />}
-                                            {job.remote_job && (
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                                                        style={{ background: 'rgba(87,238,255,0.05)', border: '1px solid rgba(87,238,255,0.1)' }}>
-                                                        <svg className="w-3.5 h-3.5" style={{ color: C.cyanText }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
-                                                        </svg>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: 'rgba(160,178,205,0.35)', fontFamily: GF }}>Work Location</p>
-                                                        <span className="inline-flex items-center gap-1.5 text-[12px] px-2 py-0.5 rounded-full font-semibold"
-                                                            style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.color, fontFamily: GF }}>
-                                                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: rc.dot }} />
-                                                            {job.remote_job}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {job.experience && <DetailRow icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" label="Experience" value={job.experience} />}
-                                            {job.pay_rate___salary && <DetailRow icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" label="Pay Rate" value={job.pay_rate___salary} accent />}
-                                            {job.career_portal_published_date && <DetailRow icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" label="Posted" value={fmtDate(job.career_portal_published_date) ?? 'N/A'} />}
-                                            {job.industry && <DetailRow icon="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" label="Industry" value={job.industry} />}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

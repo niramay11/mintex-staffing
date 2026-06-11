@@ -61,22 +61,32 @@ const REMOTE_COLORS: Record<string, { bg: string; border: string; color: string;
     Remote:    { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)', color: '#6EE7B7', dot: '#10B981' },
     Hybrid:    { bg: 'rgba(87,238,255,0.08)', border: 'rgba(87,238,255,0.2)',  color: '#7ED6E6', dot: '#57EEFF' },
     'On-site': { bg: 'rgba(255,87,88,0.12)',  border: 'rgba(255,87,88,0.28)', color: '#FFB3B3', dot: '#FF5758' },
+    Yes:       { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)', color: '#6EE7B7', dot: '#10B981' },
+    No:        { bg: 'rgba(255,87,88,0.12)',  border: 'rgba(255,87,88,0.28)', color: '#FFB3B3', dot: '#FF5758' },
 };
+const normalizeRemote = (val: string): string =>
+    val === 'Yes' ? 'Remote' : val === 'No' ? 'On-site' : val;
 
 const GF = 'var(--font-gilroy)';
 
+// Remove zip/postal codes from location strings (e.g. "Lansing, MI, 48908" → "Lansing, MI")
+const stripZip = (loc: string): string =>
+    loc.replace(/,?\s*\b\d{5}(-\d{4})?\b/g, '').replace(/,\s*$/, '').trim();
+
+const LOCATION_OPTIONS = [
+    'Remote',
+    'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
+    'Delaware','District of Columbia','Florida','Georgia','Hawaii','Idaho','Illinois',
+    'Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts',
+    'Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada',
+    'New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota',
+    'Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina',
+    'South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington',
+    'West Virginia','Wisconsin','Wyoming',
+];
+
+
 // Strip HTML tags and decode common entities for plain-text previews
-const stripHtml = (html: string): string =>
-    html
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/\s+/g, ' ')
-        .trim();
 
 // ── FilterSection ────────────────────────────────────────────────────────────
 const FilterSection = ({ label, options, selected, onToggle, defaultExpanded = true }: {
@@ -309,7 +319,7 @@ const JobDetailView = ({ job, onBack, onApply }: { job: Job; onBack: () => void;
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                             </svg>
                                             <span className="text-sm" style={{ color: 'rgba(160,178,205,0.65)', fontFamily: GF }}>
-                                                {job.location || [job.city, job.states, job.zip_code, job.country].filter(Boolean).join(', ')}
+                                                {stripZip(job.location || [job.city, job.states].filter(Boolean).join(', '))}
                                             </span>
                                         </div>
                                         {/* Meta badges */}
@@ -411,7 +421,7 @@ const JobDetailView = ({ job, onBack, onApply }: { job: Job; onBack: () => void;
                                         {
                                             icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064',
                                             label: 'Work Location',
-                                            value: job.remote_job || 'N/A',
+                                            value: normalizeRemote(job.remote_job) || 'N/A',
                                             badge: rc,
                                         },
                                         {
@@ -556,11 +566,8 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
     // Filter Active jobs client-side — same logic as admin panel
     const activeJobs = useMemo(() => jobs.filter(isActiveJob), [jobs]);
 
-    const jobTypes    = useMemo(() => Array.from(new Set(activeJobs.map(j => j.job_type).filter(Boolean))).sort(), [activeJobs]);
-    const locationOpts = useMemo(() => Array.from(new Set(activeJobs.map(j => j.remote_job).filter(Boolean))).sort(), [activeJobs]);
-    const expOpts     = useMemo(() => Array.from(new Set(activeJobs.map(j => j.experience).filter(Boolean))).sort(), [activeJobs]);
+    const jobTypes    = useMemo(() => Array.from(new Set([...activeJobs.map(j => j.job_type).filter(Boolean), 'Part Time'])).sort(), [activeJobs]);
     const industries  = useMemo(() => Array.from(new Set(activeJobs.map(j => j.industry).filter(Boolean) as string[])).sort(), [activeJobs]);
-    const workAuthOpts = useMemo(() => Array.from(new Set(activeJobs.map(j => j.work_authorization).filter(Boolean) as string[])).sort(), [activeJobs]);
 
     const toggleSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, val: string) =>
         setter(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s; });
@@ -581,8 +588,24 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
 
     const filteredJobs = useMemo(() => activeJobs.filter(j => {
         if (filterTypes.size > 0 && !filterTypes.has(j.job_type)) return false;
-        if (filterLocations.size > 0 && !filterLocations.has(j.remote_job)) return false;
-        if (filterExperiences.size > 0 && !filterExperiences.has(j.experience)) return false;
+        if (filterLocations.size > 0) {
+            const selected = Array.from(filterLocations)[0];
+            if (selected === 'Remote') {
+                const remoteVal = (j.remote_job || '').toLowerCase();
+                if (remoteVal !== 'remote' && remoteVal !== 'yes') return false;
+            } else {
+                const fullName = selected.toLowerCase();
+                const jobState    = (j.states   || '').toLowerCase();
+                const jobLocation = (j.location || '').toLowerCase();
+                const jobCity     = (j.city     || '').toLowerCase();
+                if (!jobState.includes(fullName) && !jobLocation.includes(fullName) && !jobCity.includes(fullName)) return false;
+            }
+        }
+        if (filterExperiences.size > 0) {
+            const raw = parseFloat((j.experience || '').replace(/[^0-9.]/g, '')) || 0;
+            const level = raw <= 3 ? 'Entry' : raw <= 7 ? 'Mid' : 'Senior';
+            if (!filterExperiences.has(level)) return false;
+        }
         if (filterIndustries.size > 0 && j.industry && !filterIndustries.has(j.industry)) return false;
         if (filterWorkAuths.size > 0 && j.work_authorization && !filterWorkAuths.has(j.work_authorization)) return false;
         if (appliedTitle.trim()) {
@@ -641,12 +664,105 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                     <button onClick={clearAllFilters} className="text-[11px] font-bold" style={{ color: C.coral, fontFamily: GF }}>Clear all</button>
                 )}
             </div>
-            <div className="flex-1 overflow-y-auto hide-scrollbar">
+            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: `rgba(255,87,88,0.35) rgba(255,255,255,0.04)` }}>
                 {jobTypes.length > 0    && <FilterSection label="Job Type"           options={jobTypes}      selected={filterTypes}      onToggle={v => toggleSet(setFilterTypes, v)}      defaultExpanded />}
-                {locationOpts.length > 0 && <FilterSection label="Work Location"    options={locationOpts}  selected={filterLocations}  onToggle={v => toggleSet(setFilterLocations, v)} defaultExpanded />}
-                {workAuthOpts.length > 0 && <FilterSection label="Work Authorization" options={workAuthOpts} selected={filterWorkAuths}  onToggle={v => toggleSet(setFilterWorkAuths, v)} defaultExpanded />}
+                {/* Work Location — state dropdown */}
+                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="px-5 py-4">
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <span className="text-sm font-bold" style={{ color: '#e8eeff', fontFamily: GF }}>Work Location</span>
+                            {filterLocations.size > 0 && (
+                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: C.coralDim, color: C.coral, border: `1px solid ${C.coralBdr}` }}>1</span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <select
+                                value={filterLocations.size === 1 ? Array.from(filterLocations)[0] : ''}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setFilterLocations(val ? new Set([val]) : new Set());
+                                }}
+                                className="w-full pl-3 pr-8 py-2.5 rounded-xl text-[13px] focus:outline-none appearance-none cursor-pointer"
+                                style={{
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: `1.5px solid ${filterLocations.size > 0 ? C.coral : 'rgba(255,255,255,0.12)'}`,
+                                    color: filterLocations.size > 0 ? '#e8eeff' : 'rgba(160,178,205,0.6)',
+                                    fontFamily: GF,
+                                    boxShadow: filterLocations.size > 0 ? `0 0 8px ${C.coral}40` : 'none',
+                                }}>
+                                <option value="" style={{ background: '#060f28', color: 'rgba(160,178,205,0.7)' }}>All Locations</option>
+                                {LOCATION_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt} style={{ background: '#060f28', color: '#e8f0ff' }}>{opt}</option>
+                                ))}
+                            </select>
+                            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'rgba(160,178,205,0.4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
                 {industries.length > 0  && <FilterSection label="Industry"          options={industries}    selected={filterIndustries}  onToggle={v => toggleSet(setFilterIndustries, v)} defaultExpanded={false} />}
-                {expOpts.length > 0     && <FilterSection label="Experience"        options={expOpts}       selected={filterExperiences} onToggle={v => toggleSet(setFilterExperiences, v)} defaultExpanded={false} />}
+                {/* Experience level — pill buttons */}
+                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="px-5 py-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold" style={{ color: '#e8eeff', fontFamily: GF }}>Experience level</span>
+                            {filterExperiences.size > 0 && (
+                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: C.coralDim, color: C.coral, border: `1px solid ${C.coralBdr}` }}>{filterExperiences.size}</span>
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            {([
+                                { key: 'Entry',  label: 'Entry level',  sub: '1–3 yrs',  bars: 1 },
+                                { key: 'Mid',    label: 'Mid level',    sub: '4–7 yrs',  bars: 2 },
+                                { key: 'Senior', label: 'Senior',       sub: '8+ yrs',   bars: 3 },
+                            ] as const).map(({ key, label, sub, bars }) => {
+                                const active = filterExperiences.has(key);
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => toggleSet(setFilterExperiences, key)}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200"
+                                        style={{
+                                            background: active ? `linear-gradient(135deg, ${C.coral}18, ${C.coral}08)` : 'rgba(255,255,255,0.03)',
+                                            border: `1.5px solid ${active ? C.coral : 'rgba(255,255,255,0.08)'}`,
+                                            boxShadow: active ? `0 0 16px ${C.coral}25, inset 0 1px 0 ${C.coral}15` : 'none',
+                                            fontFamily: GF,
+                                        }}>
+                                        <div className="flex items-center gap-3">
+                                            {/* Level bars indicator */}
+                                            <div className="flex items-end gap-[3px] h-5">
+                                                {[1, 2, 3].map(b => (
+                                                    <div key={b} className="w-1.5 rounded-sm transition-all duration-200"
+                                                        style={{
+                                                            height: b === 1 ? '8px' : b === 2 ? '12px' : '18px',
+                                                            background: b <= bars
+                                                                ? active ? C.coral : 'rgba(160,178,205,0.5)'
+                                                                : 'rgba(255,255,255,0.08)',
+                                                        }} />
+                                                ))}
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-[13px] font-bold leading-tight" style={{ color: active ? C.coral : '#dce8f8' }}>{label}</p>
+                                                <p className="text-[11px] mt-0.5" style={{ color: active ? `${C.coral}99` : 'rgba(160,178,205,0.45)' }}>{sub}</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                                            style={{
+                                                background: active ? C.coral : 'rgba(255,255,255,0.06)',
+                                                border: `1.5px solid ${active ? C.coral : 'rgba(255,255,255,0.12)'}`,
+                                                boxShadow: active ? `0 0 8px ${C.coral}60` : 'none',
+                                            }}>
+                                            {active && <svg className="w-2.5 h-2.5" style={{ color: '#fff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                            </svg>}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -666,7 +782,7 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                     backdropFilter: 'blur(20px)',
                     borderBottom: `1px solid ${scrolled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)'}`,
                 }}>
-                <div className="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between" style={{ height: 62 }}>
+                <div className="w-full px-6 lg:px-10 flex items-center justify-between" style={{ height: 62 }}>
                     <Link href="/"><Image src={Logo} alt="Mintex Staffing" width={155} height={22} priority /></Link>
                     <div className="flex items-center gap-3">
                         {!detailJob && (
@@ -698,7 +814,7 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
             </header>
 
             {/* BODY */}
-            <div className="max-w-[1400px] mx-auto relative z-10" style={{ paddingTop: 62 }}>
+            <div className="w-full relative z-10" style={{ paddingTop: 62 }}>
                 <div className="flex min-h-[calc(100vh-62px)] relative">
 
                     {/* Sidebar */}
@@ -740,63 +856,70 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                         </AnimatePresence>
 
                         {/* ── JOB LIST (hidden when detail or apply is open) ── */}
-                        <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24" style={{ display: (isApplyOpen || detailJob) ? 'none' : 'block' }}>
+                        <main className="px-5 sm:px-7 lg:px-10 py-8 pb-24" style={{ display: (isApplyOpen || detailJob) ? 'none' : 'block' }}>
 
                             {/* Heading */}
-                            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-5">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.coral, boxShadow: `0 0 8px ${C.coral}` }} />
-                                    <span className="text-[10px] font-bold tracking-[0.18em] uppercase" style={{ color: C.coral, fontFamily: GF }}>Open Positions</span>
+                            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-7">
+                                <div className="flex items-center gap-2.5 mb-2">
+                                    <span className="w-2 h-2 rounded-full" style={{ background: C.coral, boxShadow: `0 0 10px ${C.coral}` }} />
+                                    <span className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: C.coral, fontFamily: GF }}>Open Positions</span>
                                 </div>
-                                <h1 className="font-black" style={{ fontFamily: GF, fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', lineHeight: 1.2 }}>
+                                <h1 className="font-black mb-1" style={{ fontFamily: GF, fontSize: 'clamp(1.75rem, 3vw, 2.4rem)', lineHeight: 1.15 }}>
                                     <span style={{ background: `linear-gradient(120deg, #ffffff 0%, #d4f8ff 55%, ${C.cyan} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                                         Find Your Next Role
                                     </span>
                                 </h1>
+                                <p className="text-sm" style={{ color: 'rgba(160,178,205,0.5)', fontFamily: GF }}>Browse our latest openings and apply in minutes</p>
                             </motion.div>
 
                             {/* Search bar */}
                             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.07 }}
-                                className="flex flex-col sm:flex-row gap-2 mb-5">
+                                className="flex flex-col sm:flex-row gap-3 mb-6 p-1.5 rounded-2xl"
+                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div className="relative flex-1">
-                                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'rgba(160,178,205,0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 pointer-events-none" style={{ color: 'rgba(160,178,205,0.4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
-                                    <input type="text" placeholder="Search by job title"
+                                    <input type="text" placeholder="Search by job title or keyword…"
                                         value={searchTitle} onChange={e => setSearchTitle(e.target.value)} onKeyDown={handleKeyDown}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none"
-                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none'; }} />
+                                        className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm focus:outline-none"
+                                        style={{ background: 'transparent', border: 'none', color: '#e8f0ff', fontFamily: GF, fontSize: '0.875rem' }}
+                                        onFocus={e => { (e.target.closest('div')!.parentElement as HTMLElement).style.borderColor = C.cyanBdr; }}
+                                        onBlur={e => { (e.target.closest('div')!.parentElement as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }} />
                                 </div>
                                 <div className="relative sm:w-44">
-                                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'rgba(160,178,205,0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'rgba(160,178,205,0.4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
-                                    <input type="text" placeholder="Enter Zip Code"
+                                    <input type="text" placeholder="Zip Code"
                                         value={searchZip} onChange={e => setSearchZip(e.target.value)} onKeyDown={handleKeyDown}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none"
-                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }}
-                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none'; }} />
+                                        className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm focus:outline-none"
+                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8f0ff', fontFamily: GF }}
+                                        onFocus={e => { e.target.style.borderColor = C.cyanBdr; }}
+                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }} />
                                 </div>
                                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                                     onClick={handleSearch}
-                                    className="px-7 py-3 rounded-xl font-black text-sm tracking-wide flex-shrink-0"
-                                    style={{ background: `linear-gradient(135deg, ${C.coral}, #ff8181)`, color: '#fff', boxShadow: `0 0 20px ${C.coral}44`, fontFamily: GF }}>
+                                    className="px-8 py-3.5 rounded-xl font-black text-sm tracking-wider flex-shrink-0 flex items-center gap-2"
+                                    style={{ background: `linear-gradient(135deg, ${C.coral}, #ff7070)`, color: '#fff', boxShadow: `0 4px 24px ${C.coral}55`, fontFamily: GF }}>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
                                     Search
                                 </motion.button>
                             </motion.div>
 
                             {/* Results count */}
                             {!loading && (
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-sm font-semibold" style={{ color: 'rgba(160,178,205,0.55)', fontFamily: GF }}>
-                                        <span style={{ color: '#e8eeff' }}>{filteredJobs.length}</span> active position{filteredJobs.length !== 1 ? 's' : ''} shown
-                                    </span>
+                                <div className="flex items-center justify-between mb-5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-black" style={{ color: '#e8eeff', fontFamily: GF }}>{filteredJobs.length}</span>
+                                        <span className="text-sm" style={{ color: 'rgba(160,178,205,0.5)', fontFamily: GF }}>active position{filteredJobs.length !== 1 ? 's' : ''} found</span>
+                                    </div>
                                     {(appliedTitle || appliedZip) && (
                                         <button onClick={() => { setSearchTitle(''); setSearchZip(''); setAppliedTitle(''); setAppliedZip(''); }}
-                                            className="text-[11px] font-bold flex items-center gap-1" style={{ color: C.coral, fontFamily: GF }}>
+                                            className="text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                                            style={{ color: C.coral, background: C.coralDim, border: `1px solid ${C.coralBdr}`, fontFamily: GF }}>
                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                                             </svg>
@@ -808,12 +931,12 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
 
                             {/* Loading */}
                             {loading && (
-                                <div className="flex flex-col items-center justify-center py-32">
-                                    <div className="relative w-10 h-10 mb-4">
+                                <div className="flex flex-col items-center justify-center py-36">
+                                    <div className="relative w-12 h-12 mb-5">
                                         <div className="absolute inset-0 rounded-full" style={{ border: `1px solid ${C.coralDim}` }} />
-                                        <div className="absolute inset-0 rounded-full animate-spin" style={{ border: '1.5px solid transparent', borderTopColor: C.coral }} />
+                                        <div className="absolute inset-0 rounded-full animate-spin" style={{ border: '2px solid transparent', borderTopColor: C.coral }} />
                                     </div>
-                                    <p className="text-xs tracking-[0.2em] uppercase" style={{ color: 'rgba(160,178,205,0.4)', fontFamily: GF }}>Loading active positions…</p>
+                                    <p className="text-sm font-semibold tracking-[0.15em] uppercase" style={{ color: 'rgba(160,178,205,0.45)', fontFamily: GF }}>Loading positions…</p>
                                 </div>
                             )}
 
@@ -821,15 +944,23 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                             {!loading && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
                                     {filteredJobs.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-24">
-                                            <svg className="w-10 h-10 mb-3" style={{ color: 'rgba(160,178,205,0.2)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <p className="text-sm font-semibold mb-1" style={{ color: 'rgba(160,178,205,0.35)', fontFamily: GF }}>No active positions match your filters</p>
-                                            <button onClick={clearAllFilters} className="text-xs font-bold mt-2" style={{ color: C.coral, fontFamily: GF }}>Clear filters</button>
+                                        <div className="flex flex-col items-center justify-center py-28">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                                <svg className="w-8 h-8" style={{ color: 'rgba(160,178,205,0.2)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-base font-bold mb-1" style={{ color: 'rgba(200,215,235,0.4)', fontFamily: GF }}>No positions match your filters</p>
+                                            <p className="text-sm mb-4" style={{ color: 'rgba(160,178,205,0.3)', fontFamily: GF }}>Try adjusting your search or clearing filters</p>
+                                            <button onClick={clearAllFilters}
+                                                className="text-sm font-bold px-5 py-2.5 rounded-xl"
+                                                style={{ background: C.coralDim, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}>
+                                                Clear all filters
+                                            </button>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                                             {filteredJobs.map((job, index) => {
                                                 const rc  = REMOTE_COLORS[job.remote_job] ?? REMOTE_COLORS['On-site'];
                                                 const sel = selectedCodes.has(job.job_code);
@@ -837,72 +968,82 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                                                 return (
                                                     <motion.div
                                                         key={job.job_code || index}
-                                                        initial={{ opacity: 0, y: 16 }}
+                                                        initial={{ opacity: 0, y: 20 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                                                        className="rounded-2xl relative overflow-hidden group flex flex-col"
+                                                        className="rounded-2xl relative overflow-hidden group flex flex-col cursor-pointer"
+                                                        onClick={() => openDetail(job)}
                                                         style={{
-                                                            background: sel ? 'rgba(255,87,88,0.05)' : 'rgba(255,255,255,0.025)',
-                                                            border: `1.5px solid ${sel ? C.coralBdr : 'rgba(255,255,255,0.07)'}`,
-                                                            backdropFilter: 'blur(16px)',
-                                                            transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+                                                            background: sel ? 'rgba(255,87,88,0.06)' : 'rgba(255,255,255,0.03)',
+                                                            border: `1.5px solid ${sel ? C.coralBdr : 'rgba(255,255,255,0.08)'}`,
+                                                            backdropFilter: 'blur(20px)',
+                                                            boxShadow: sel ? `0 0 24px ${C.coral}20` : '0 4px 24px rgba(0,0,0,0.2)',
+                                                            transition: 'all 0.25s ease',
                                                         }}
-                                                        onMouseEnter={e => { if (!sel) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(87,238,255,0.2)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.3)'; } }}
-                                                        onMouseLeave={e => { if (!sel) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; } }}>
+                                                        onMouseEnter={e => { if (!sel) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(87,238,255,0.25)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.055)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(87,238,255,0.08)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; } }}
+                                                        onMouseLeave={e => { if (!sel) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 24px rgba(0,0,0,0.2)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; } }}>
 
-                                                        <div className="absolute top-0 left-0 right-0 h-px"
-                                                            style={{ background: sel ? `linear-gradient(90deg,transparent,${C.coral}88,transparent)` : undefined }} />
-                                                        <div className="absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                                                            style={{ background: `linear-gradient(90deg,transparent,${C.cyan}55,transparent)`, display: sel ? 'none' : undefined }} />
+                                                        {/* Top accent line */}
+                                                        <div className="absolute top-0 left-0 right-0 h-[2px]"
+                                                            style={{ background: sel ? `linear-gradient(90deg,transparent,${C.coral},transparent)` : `linear-gradient(90deg,transparent,rgba(87,238,255,0.3),transparent)`, opacity: sel ? 1 : 0 }} />
+                                                        <div className="absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                            style={{ background: `linear-gradient(90deg,transparent,${C.cyan}80,transparent)`, display: sel ? 'none' : undefined }} />
 
-                                                        <div className="p-5 flex-1">
-                                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                        <div className="p-6 flex-1">
+                                                            {/* Header row */}
+                                                            <div className="flex items-start justify-between gap-3 mb-4">
                                                                 <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1.5">
-                                                                        <span className="font-mono text-[10px] px-2 py-0.5 rounded"
-                                                                            style={{ background: 'rgba(87,238,255,0.07)', color: 'rgba(87,238,255,0.55)', border: '1px solid rgba(87,238,255,0.14)' }}>
-                                                                            {job.job_code}
-                                                                        </span>
-                                                                        <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#6EE7B7' }}>
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                                            Active
-                                                                        </span>
-                                                                    </div>
-                                                                    <h3 className="text-base font-black leading-snug" style={{ fontFamily: GF, color: sel ? '#ffdede' : '#f0f4ff' }}>
+                                                                    <span className="inline-block font-mono text-[11px] px-2.5 py-1 rounded-lg mb-2.5"
+                                                                        style={{ background: 'rgba(87,238,255,0.08)', color: 'rgba(87,238,255,0.7)', border: '1px solid rgba(87,238,255,0.15)', letterSpacing: '0.05em' }}>
+                                                                        {job.job_code}
+                                                                    </span>
+                                                                    <h3 className="font-black leading-snug" style={{ fontFamily: GF, color: sel ? '#ffdede' : '#f4f7ff', fontSize: '1.05rem' }}>
                                                                         {job.job_title}
                                                                     </h3>
                                                                 </div>
-                                                                {/* Checkbox for multi-apply */}
+                                                                {/* Checkbox */}
                                                                 <div
                                                                     onClick={e => { e.stopPropagation(); const s = new Set(selectedCodes); s.has(job.job_code) ? s.delete(job.job_code) : s.add(job.job_code); setSelectedCodes(s); }}
-                                                                    className="w-5 h-5 rounded flex-shrink-0 mt-1.5 flex items-center justify-center cursor-pointer transition-all duration-150"
-                                                                    style={{ background: sel ? C.coral : 'rgba(255,255,255,0.05)', border: `1.5px solid ${sel ? C.coral : 'rgba(255,255,255,0.15)'}`, boxShadow: sel ? `0 0 10px ${C.coral}70` : 'none' }}>
-                                                                    {sel && <svg className="w-3 h-3" style={{ color: '#fff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                                                    className="w-6 h-6 rounded-lg flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer transition-all duration-200"
+                                                                    style={{ background: sel ? C.coral : 'rgba(255,255,255,0.06)', border: `2px solid ${sel ? C.coral : 'rgba(255,255,255,0.12)'}`, boxShadow: sel ? `0 0 12px ${C.coral}60` : 'none' }}>
+                                                                    {sel && <svg className="w-3.5 h-3.5" style={{ color: '#fff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                                     </svg>}
                                                                 </div>
                                                             </div>
 
-                                                            <div className="flex items-center gap-1.5 mb-3">
-                                                                <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(87,238,255,0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            {/* Location */}
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <svg className="w-4 h-4 flex-shrink-0" style={{ color: C.cyanText }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                                                 </svg>
-                                                                <span className="text-[12px]" style={{ color: 'rgba(160,178,205,0.6)', fontFamily: GF }}>
-                                                                    {job.location || [job.city, job.states, job.zip_code].filter(Boolean).join(', ')}
+                                                                <span className="text-sm font-medium" style={{ color: 'rgba(200,218,240,0.75)', fontFamily: GF }}>
+                                                                    {stripZip(job.location || [job.city, job.states].filter(Boolean).join(', ')) || 'Location not specified'}
                                                                 </span>
                                                             </div>
 
-                                                            {(job.public_job_description || job.job_description) && (
-                                                                <p className="text-[12px] leading-relaxed mb-3 line-clamp-2"
-                                                                    style={{ color: 'rgba(160,178,205,0.5)', fontFamily: GF }}>
-                                                                    {stripHtml(job.public_job_description || job.job_description).slice(0, 160)}
-                                                                </p>
-                                                            )}
+                                                            {/* Salary */}
+                                                            {(() => {
+                                                                const pay = (job.pay_rate___salary || '').trim();
+                                                                if (!pay || pay === '0' || pay.toLowerCase() === 'n/a') return null;
+                                                                return (
+                                                                    <div className="mb-4">
+                                                                        <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold"
+                                                                            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#6EE7B7', fontFamily: GF }}>
+                                                                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            </svg>
+                                                                            {pay}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })()}
 
-                                                            <div className="flex flex-wrap gap-1.5 mb-3">
+                                                            {/* Badges */}
+                                                            <div className="flex flex-wrap gap-2">
                                                                 {job.experience && (
-                                                                    <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-semibold"
-                                                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(200,215,235,0.6)', fontFamily: GF }}>
+                                                                    <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold"
+                                                                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(210,225,245,0.8)', fontFamily: GF }}>
                                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                                         </svg>
@@ -910,51 +1051,36 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                                                                     </span>
                                                                 )}
                                                                 {job.remote_job && (
-                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold"
+                                                                    <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold"
                                                                         style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.color, fontFamily: GF }}>
                                                                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: rc.dot }} />
-                                                                        {job.remote_job}
+                                                                        {normalizeRemote(job.remote_job)}
                                                                     </span>
                                                                 )}
                                                                 {job.job_type && (
-                                                                    <span className="text-[11px] px-2.5 py-1 rounded-full font-semibold"
-                                                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(200,215,235,0.55)', fontFamily: GF }}>
+                                                                    <span className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                                                                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(210,225,245,0.75)', fontFamily: GF }}>
                                                                         {job.job_type}
                                                                     </span>
                                                                 )}
                                                             </div>
-
-                                                            {job.primary_skills && (
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {job.primary_skills.split(',').slice(0, 3).map((s, i) => (
-                                                                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
-                                                                            style={{ background: 'rgba(87,238,255,0.05)', border: '1px solid rgba(87,238,255,0.1)', color: 'rgba(120,210,225,0.6)', fontFamily: GF }}>
-                                                                            {s.trim()}
-                                                                        </span>
-                                                                    ))}
-                                                                    {job.primary_skills.split(',').length > 3 && (
-                                                                        <span className="text-[10px] font-medium" style={{ color: 'rgba(160,178,205,0.3)', fontFamily: GF }}>
-                                                                            +{job.primary_skills.split(',').length - 3}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            )}
                                                         </div>
 
-                                                        <div className="px-5 py-3 flex items-center justify-between flex-shrink-0"
-                                                            style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
-                                                            <span className="text-[11px]" style={{ color: 'rgba(160,178,205,0.35)', fontFamily: GF }}>
+                                                        {/* Footer */}
+                                                        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+                                                            style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)' }}>
+                                                            <span className="text-xs font-medium" style={{ color: 'rgba(160,178,205,0.4)', fontFamily: GF }}>
                                                                 {posted ? `Posted ${posted}` : 'Recently posted'}
                                                             </span>
                                                             <button
-                                                                onClick={() => openDetail(job)}
-                                                                className="flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all duration-200"
-                                                                style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText, fontFamily: GF }}
-                                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(87,238,255,0.14)'; }}
-                                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.cyanDim; }}>
-                                                                View &amp; Apply
+                                                                onClick={e => { e.stopPropagation(); openDetail(job); }}
+                                                                className="flex items-center gap-2 text-xs font-black px-4 py-2 rounded-xl transition-all duration-200"
+                                                                style={{ background: `linear-gradient(135deg, ${C.coral}22, ${C.coral}11)`, border: `1px solid ${C.coralBdr}`, color: C.coral, fontFamily: GF }}
+                                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg,${C.coral},#ff7070)`; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${C.coral}44`; }}
+                                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg,${C.coral}22,${C.coral}11)`; (e.currentTarget as HTMLElement).style.color = C.coral; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                                                                View & Apply
                                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                                                                 </svg>
                                                             </button>
                                                         </div>

@@ -1,6 +1,6 @@
 export default function JobsLoading() {
   return (
-    <div className="min-h-screen" style={{ background: '#04081600' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #06091e 0%, #060f28 50%, #030e18 100%)' }}>
       {/* Skeleton nav bar */}
       <div className="h-[62px] border-b border-white/5 bg-black/40 backdrop-blur flex items-center px-6 gap-6">
         <div className="h-7 w-32 rounded bg-white/10 animate-pulse" />

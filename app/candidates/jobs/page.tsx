@@ -9,7 +9,15 @@ export const metadata: Metadata = {
     description: 'Browse available job opportunities',
 };
 
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
+    Promise.race([promise, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
+
 export default async function JobsPage() {
-    const jobs = await getAllJobs();
+    let jobs: Record<string, unknown>[] = [];
+    try {
+        jobs = await withTimeout(getAllJobs(), 3000, []);
+    } catch {
+        // fallback: client will fetch via /api/jobs
+    }
     return <JobsClient initialJobs={jobs} />;
 }
