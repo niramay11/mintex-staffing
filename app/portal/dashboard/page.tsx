@@ -4,6 +4,8 @@ import { verifySession } from '@/lib/portal-auth';
 import { getAllJobs, getAllPlacements } from '@/lib/data-cache';
 import PortalDashboardClient from './PortalDashboardClient';
 
+export const dynamic = 'force-dynamic';
+
 const ALWAYS_STRIP = [
   'primary_recruiter','assigned_recruiter','sales_manager','recruitment_manager',
   'posted_by','created_by','modified_by','business_unit_id','business_unit',

@@ -1,10 +1,19 @@
-import { unstable_cache } from 'next/cache';
 import { ceipalFetch, ceipalFetchV2, CEIPAL_JOBS_URL, CEIPAL_PLACEMENTS_URL } from './ceipal';
 
 const PAGE_SIZE  = 50;
 const BATCH_SIZE = 3;
-const REVALIDATE = 300; // 5 minutes — Next.js data cache (persists across serverless invocations)
+export const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// ─── In-memory cache ──────────────────────────────────────────────────────────
+// On Railway (persistent Node.js server) these module-level variables survive
+// across requests for the lifetime of the process — exactly what we need.
+let jobsCache:    { data: Record<string, unknown>[]; at: number } | null = null;
+let jobsInflight: Promise<Record<string, unknown>[]> | null = null;
+
+let placementsCache:    { data: Record<string, unknown>[]; at: number } | null = null;
+let placementsInflight: Promise<Record<string, unknown>[]> | null = null;
+
+// ─── CEIPAL fetch helpers ─────────────────────────────────────────────────────
 function jobCodeNum(code: unknown): number {
   const m = String(code ?? '').match(/(\d+)/);
   return m ? parseInt(m[1], 10) : 0;
@@ -41,7 +50,6 @@ async function _fetchAllJobs(): Promise<Record<string, unknown>[]> {
     }
     if (done) break;
   }
-
   const seen = new Set<string>();
   const jpc = all.filter(j => {
     const code = String(j.job_code ?? '');
@@ -51,6 +59,7 @@ async function _fetchAllJobs(): Promise<Record<string, unknown>[]> {
     return true;
   });
   jpc.sort((a, b) => jobCodeNum(b.job_code) - jobCodeNum(a.job_code));
+  console.log(`[data-cache] fetched ${all.length} total, ${jpc.length} JPC jobs`);
   return jpc;
 }
 
@@ -63,16 +72,29 @@ async function _fetchAllPlacements(): Promise<Record<string, unknown>[]> {
   } catch { return []; }
 }
 
-// Cached versions — Next.js data cache persists across serverless function invocations on Vercel.
-// First request fetches from CEIPAL; all subsequent requests within 5 minutes return instantly.
-export const getAllJobs = unstable_cache(
-  _fetchAllJobs,
-  ['ceipal-all-jobs'],
-  { revalidate: REVALIDATE },
-);
+// ─── Public API ───────────────────────────────────────────────────────────────
+export async function getAllJobs(): Promise<Record<string, unknown>[]> {
+  if (jobsCache && Date.now() - jobsCache.at < CACHE_TTL) return jobsCache.data;
+  if (!jobsInflight) {
+    jobsInflight = _fetchAllJobs()
+      .then(data => { jobsCache = { data, at: Date.now() }; return data; })
+      .finally(() => { jobsInflight = null; });
+  }
+  return jobsInflight;
+}
 
-export const getAllPlacements = unstable_cache(
-  _fetchAllPlacements,
-  ['ceipal-all-placements'],
-  { revalidate: REVALIDATE },
-);
+export async function getAllPlacements(): Promise<Record<string, unknown>[]> {
+  if (placementsCache && Date.now() - placementsCache.at < CACHE_TTL) return placementsCache.data;
+  if (!placementsInflight) {
+    placementsInflight = _fetchAllPlacements()
+      .then(data => { placementsCache = { data, at: Date.now() }; return data; })
+      .finally(() => { placementsInflight = null; });
+  }
+  return placementsInflight;
+}
+
+// Force-invalidate both caches (e.g. on manual sync)
+export function invalidateCache() {
+  jobsCache = null;
+  placementsCache = null;
+}
