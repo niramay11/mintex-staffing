@@ -73,24 +73,51 @@ async function _fetchAllPlacements(): Promise<Record<string, unknown>[]> {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+function startJobsRefresh() {
+  if (jobsInflight) return;
+  jobsInflight = _fetchAllJobs()
+    .then(data => { jobsCache = { data, at: Date.now() }; return data; })
+    .catch(err  => { console.error('[data-cache] jobs refresh failed:', err); return jobsCache?.data ?? []; })
+    .finally(() => { jobsInflight = null; });
+}
+
+function startPlacementsRefresh() {
+  if (placementsInflight) return;
+  placementsInflight = _fetchAllPlacements()
+    .then(data => { placementsCache = { data, at: Date.now() }; return data; })
+    .catch(err  => { console.error('[data-cache] placements refresh failed:', err); return placementsCache?.data ?? []; })
+    .finally(() => { placementsInflight = null; });
+}
+
 export async function getAllJobs(): Promise<Record<string, unknown>[]> {
-  if (jobsCache && Date.now() - jobsCache.at < CACHE_TTL) return jobsCache.data;
-  if (!jobsInflight) {
-    jobsInflight = _fetchAllJobs()
-      .then(data => { jobsCache = { data, at: Date.now() }; return data; })
-      .finally(() => { jobsInflight = null; });
+  const now = Date.now();
+
+  // Fresh cache — return immediately
+  if (jobsCache && now - jobsCache.at < CACHE_TTL) return jobsCache.data;
+
+  // Stale cache — return immediately, refresh silently in background
+  if (jobsCache) {
+    startJobsRefresh();
+    return jobsCache.data;
   }
-  return jobsInflight;
+
+  // No cache — must wait for fresh data
+  startJobsRefresh();
+  return jobsInflight!;
 }
 
 export async function getAllPlacements(): Promise<Record<string, unknown>[]> {
-  if (placementsCache && Date.now() - placementsCache.at < CACHE_TTL) return placementsCache.data;
-  if (!placementsInflight) {
-    placementsInflight = _fetchAllPlacements()
-      .then(data => { placementsCache = { data, at: Date.now() }; return data; })
-      .finally(() => { placementsInflight = null; });
+  const now = Date.now();
+
+  if (placementsCache && now - placementsCache.at < CACHE_TTL) return placementsCache.data;
+
+  if (placementsCache) {
+    startPlacementsRefresh();
+    return placementsCache.data;
   }
-  return placementsInflight;
+
+  startPlacementsRefresh();
+  return placementsInflight!;
 }
 
 // Force-invalidate both caches (e.g. on manual sync)
