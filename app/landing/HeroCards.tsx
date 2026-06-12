@@ -45,7 +45,8 @@ interface RotatingCardConfig extends BaseCardData {
 const heroCardsData: RotatingCardConfig[] = [
   {
     type: 'stat',
-    desktopPosition: { top: "15%", right: "5%" },
+    // Fixed 130px from top — always safely below the fixed navbar (~116px)
+    desktopPosition: { top: "130px", right: "4%" },
     delay: 0.2,
     rotationInterval: 4000,
     content: [
@@ -56,7 +57,7 @@ const heroCardsData: RotatingCardConfig[] = [
   },
   {
     type: 'job',
-    desktopPosition: { top: "35%", left: "5%" },
+    desktopPosition: { top: "40%", left: "4%" },
     delay: 0.4,
     rotationInterval: 5000,
     content: [
@@ -67,7 +68,7 @@ const heroCardsData: RotatingCardConfig[] = [
   },
   {
     type: 'profile',
-    desktopPosition: { bottom: "0%", right: "15%" },
+    desktopPosition: { bottom: "8%", right: "10%" },
     delay: 0.6,
     rotationInterval: 4500,
     content: [

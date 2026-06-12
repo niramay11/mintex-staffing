@@ -5,109 +5,63 @@ import PeakButton from "../landing/PeakButton";
 import HeroCards from "../landing/HeroCards";
 import Link from "next/link";
 
-// Container animation
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-    },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.2 } },
 };
 
-// Word animation for heading
 const headingContainer = {
   hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.08,
-    },
-  },
+  visible: { transition: { staggerChildren: 0.08 } },
 };
 
 const wordVariants: any = {
   hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      duration: 0.5,
-      ease: "easeOut",
-    },
-  },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-// Subtitle & button animation
 const itemVariants: any = {
   hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      duration: 0.6,
-      ease: "easeOut",
-    },
-  },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
 };
 
-// Cards animation
 const cardVariants: any = {
   hidden: { y: 40, opacity: 0, scale: 0.95 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 0.7,
-      type: "spring",
-      stiffness: 100,
-      damping: 18,
-    },
-  },
+  visible: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.7, type: "spring", stiffness: 100, damping: 18 } },
 };
 
 const Hero = () => {
   return (
     <motion.div
-      className=" min-h-screen bg-hero pt-18 lg:pt-12 flex flex-col lg:flex-row"
+      className="bg-hero flex flex-col lg:flex-row w-full overflow-hidden"
+      style={{ minHeight: "100svh" }}
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true }}
     >
-      {/* LEFT CONTENT */}
-      <div className="w-full lg:w-2/3 flex flex-col items-start justify-start pt-8 md:pt-16 lg:pt-32 px-4 sm:px-6 md:px-8 lg:pl-22">
-
-        {/* 🔥 Animated Heading */}
+      {/* LEFT CONTENT — single top padding clears the fixed navbar on all devices */}
+      <div
+        className="w-full lg:w-2/3 flex flex-col items-start justify-start px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
+        style={{
+          paddingTop:    "clamp(130px, 15vh, 175px)",
+          paddingBottom: "clamp(24px, 4vh, 56px)",
+        }}
+      >
+        {/* Heading */}
         <motion.h1
-          className="text-2xl sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl font-bold text-white text-left mb-4 md:mb-6 flex flex-wrap gap-x-2"
+          className="font-bold text-white text-left flex flex-wrap gap-x-2 mb-3 md:mb-5"
+          style={{ fontSize: "clamp(1.5rem, 3vw + 0.4rem, 2.6rem)", lineHeight: 1.2 }}
           variants={headingContainer}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
         >
-          {[
-            "Built",
-            "for",
-            "Startups.",
-            "Trusted",
-            "by",
-            "Enterprises.",
-            "Driving",
-            "Talent",
-            "at",
-            "Every",
-            "Stage",
-          ].map((word, i) => (
+          {["Built","for","Startups.","Trusted","by","Enterprises.","Driving","Talent","at","Every","Stage"].map((word, i) => (
             <motion.span
               key={i}
               variants={wordVariants}
-              className={
-                ["Built", "Trusted", "Driving", "Talent"].includes(word)
-                  ? "text-[#57EEFF]"
-                  : ""
-              }
+              className={["Built","Trusted","Driving","Talent"].includes(word) ? "text-[#57EEFF]" : ""}
             >
               {word}
             </motion.span>
@@ -116,7 +70,8 @@ const Hero = () => {
 
         {/* Subtitle */}
         <motion.p
-          className="text-base sm:text-lg md:text-xl text-white mb-6 md:mb-8"
+          className="text-white mb-4 md:mb-6"
+          style={{ fontSize: "clamp(0.875rem, 1.5vw, 1.15rem)" }}
           variants={itemVariants}
           transition={{ delay: 0.6 }}
         >
@@ -127,16 +82,17 @@ const Hero = () => {
 
         {/* Button */}
         <motion.div
-          className="w-full sm:w-auto mb-8 md:mb-12"
+          className="w-full sm:w-auto mb-5 md:mb-8"
           variants={itemVariants}
           transition={{ delay: 0.8 }}
         >
           <PeakButton />
         </motion.div>
 
-        {/* Cards */}
+        {/* Candidates / Clients cards */}
         <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-5 md:gap-7 mt-10 md:mt-14 lg:mt-18 mb-10"
+          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6"
+          style={{ marginTop: "clamp(12px, 3vh, 48px)" }}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -144,28 +100,29 @@ const Hero = () => {
         >
           {/* Candidates */}
           <motion.div
-            className="group relative w-full sm:w-[48%] lg:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-7 md:p-10 flex flex-col gap-5 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            className="group relative w-full sm:w-[48%] lg:w-80 xl:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            style={{ padding: "clamp(18px, 2.5vh, 36px) clamp(18px, 2vw, 36px)" }}
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col gap-5 h-full justify-between">
+            <div className="relative z-10 flex flex-col gap-4 h-full justify-between">
               <div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">Candidates</h3>
-                <p className="text-gray-300 font-light text-sm md:text-base leading-relaxed">
+                <h3 className="font-bold text-white mb-2" style={{ fontSize: "clamp(1.2rem, 2vw, 1.75rem)" }}>Candidates</h3>
+                <p className="text-gray-300 font-light leading-relaxed" style={{ fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}>
                   Your next big role is waiting...
                 </p>
               </div>
-
               <Link
                 href="/candidates/jobs"
-                className="w-full px-6 py-3.5 text-white text-sm md:text-base font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                className="w-full text-white font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(155, 81, 224, 0.18)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(155, 81, 224, 0.45)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)',
+                  fontSize: "clamp(0.7rem, 1vw, 0.875rem)",
+                  padding: "clamp(10px, 1.2vh, 14px) 16px",
+                  background: "rgba(155,81,224,0.18)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(155,81,224,0.45)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)",
                 }}
               >
                 MAKE YOUR MOVE
@@ -175,28 +132,29 @@ const Hero = () => {
 
           {/* Clients */}
           <motion.div
-            className="group relative w-full sm:w-[48%] lg:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-7 md:p-10 flex flex-col gap-5 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            className="group relative w-full sm:w-[48%] lg:w-80 xl:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
+            style={{ padding: "clamp(18px, 2.5vh, 36px) clamp(18px, 2vw, 36px)" }}
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col gap-5 h-full justify-between">
+            <div className="relative z-10 flex flex-col gap-4 h-full justify-between">
               <div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">Clients</h3>
-                <p className="text-gray-300 font-light text-sm md:text-base leading-relaxed">
-                  Let's shape your future team...
+                <h3 className="font-bold text-white mb-2" style={{ fontSize: "clamp(1.2rem, 2vw, 1.75rem)" }}>Clients</h3>
+                <p className="text-gray-300 font-light leading-relaxed" style={{ fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}>
+                  Let&apos;s shape your future team...
                 </p>
               </div>
-
               <Link
                 href="/clients/portal"
-                className="w-full px-6 py-3.5 text-white text-sm md:text-base font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
+                className="w-full text-white font-bold uppercase rounded-md text-center tracking-wider transition-all duration-200 active:translate-y-[2px] hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(155, 81, 224, 0.18)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(155, 81, 224, 0.45)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)',
+                  fontSize: "clamp(0.7rem, 1vw, 0.875rem)",
+                  padding: "clamp(10px, 1.2vh, 14px) 16px",
+                  background: "rgba(155,81,224,0.18)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(155,81,224,0.45)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(155,81,224,0.25)",
                 }}
               >
                 HUNT TALENT
@@ -206,10 +164,8 @@ const Hero = () => {
         </motion.div>
       </div>
 
-      {/* RIGHT HERO CARDS — no whileInView so cards are never trapped in opacity:0
-          on mobile/tablet where the section may start below the fold.
-          Each FadingCard runs its own mount-triggered rise animation. */}
-      <div className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0">
+      {/* RIGHT — Floating hero cards */}
+      <div className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
         <HeroCards />
       </div>
     </motion.div>
