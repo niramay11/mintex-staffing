@@ -455,16 +455,24 @@ function JobDetailModal({ job, permissions, onClose }: { job: Job; permissions: 
 }
 
 // ─── Submissions Modal ────────────────────────────────────────────────────────
-function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permissions: Record<string, boolean> }) {
+function SubmissionsModal({ onClose, permissions, onCountReady, jobCodes }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string }) {
     const [submissions, setSubmissions] = useState<Record<string, unknown>[]>([]);
     const [loading, setLoading]         = useState(true);
     const [search, setSearch]           = useState('');
     const [stageFilter, setStageFilter] = useState('all');
 
     useEffect(() => {
-        fetch('/api/portal/submissions')
+        const url = jobCodes
+            ? `/api/portal/submissions?job_codes=${encodeURIComponent(jobCodes)}`
+            : '/api/portal/submissions';
+        fetch(url)
             .then(r => r.ok ? r.json() : { results: [] })
-            .then(d => { setSubmissions(Array.isArray(d.results) ? d.results : []); setLoading(false); })
+            .then(d => {
+                const list = Array.isArray(d.results) ? d.results : [];
+                setSubmissions(list);
+                onCountReady?.(list.length);
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
     }, []);
 
@@ -538,9 +546,33 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
                             {filtered.map((sub, i) => {
                                 const status = String(sub.submission_status || sub.pipeline_status || 'Unknown');
                                 const stageIdx = mapStageIdx(status);
-                                const isPlaced = stageIdx >= 5;
+                                const sl = status.toLowerCase();
+
+                                // Status color based on actual status text
+                                const isRejected   = sl.includes('reject') || sl.includes('declined') || sl.includes('not selected') || sl.includes('withdraw');
+                                const isPlaced     = stageIdx >= 5 || sl.includes('placement') || sl.includes('placed') || sl.includes('hired');
+                                const isInterview  = sl.includes('interview');
+                                const isConfirmed  = sl.includes('confirm');
+                                const isSubmitted  = sl.includes('submission') || sl.includes('submitted');
+                                const isOnHold     = sl.includes('hold');
+
+                                const statusStyle = isRejected
+                                    ? { bg: 'rgba(255,87,88,0.12)', border: `1px solid ${C.coralBdr}`, color: '#FFB3B3' }
+                                    : isPlaced
+                                    ? { bg: 'rgba(155,92,246,0.12)', border: '1px solid rgba(155,92,246,0.3)', color: '#C4A8FF' }
+                                    : isConfirmed
+                                    ? { bg: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6EE7B7' }
+                                    : isInterview
+                                    ? { bg: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.28)', color: '#FCD34D' }
+                                    : isSubmitted
+                                    ? { bg: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText }
+                                    : isOnHold
+                                    ? { bg: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#FCD34D' }
+                                    : { bg: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(200,215,235,0.6)' };
+
                                 return (
-                                    <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div key={i} className="p-4 rounded-xl"
+                                        style={{ background: isRejected ? 'rgba(255,87,88,0.03)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isRejected ? 'rgba(255,87,88,0.1)' : 'rgba(255,255,255,0.06)'}` }}>
                                         <div className="flex items-start justify-between gap-3 mb-3">
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-white truncate" style={{ fontFamily: GF }}>
@@ -556,12 +588,7 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
                                             </div>
                                             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap"
-                                                    style={{
-                                                        background: isPlaced ? 'rgba(155,92,246,0.12)' : stageIdx >= 3 ? C.cyanDim : 'rgba(16,185,129,0.08)',
-                                                        border: isPlaced ? '1px solid rgba(155,92,246,0.3)' : stageIdx >= 3 ? `1px solid ${C.cyanBdr}` : '1px solid rgba(16,185,129,0.3)',
-                                                        color: isPlaced ? '#C4A8FF' : stageIdx >= 3 ? C.cyanText : '#6EE7B7',
-                                                        fontFamily: GF,
-                                                    }}>
+                                                    style={{ background: statusStyle.bg, border: statusStyle.border, color: statusStyle.color, fontFamily: GF }}>
                                                     {status}
                                                 </span>
                                                 {!!sub.submitted_on && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>{fmt(String(sub.submitted_on))}</span>}
@@ -615,15 +642,36 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
 }
 
 // ─── Hired Modal ──────────────────────────────────────────────────────────────
-function HiredModal({ onClose, permissions }: { onClose: () => void; permissions: Record<string, boolean> }) {
+function HiredModal({ onClose, permissions, onCountReady, jobCodes }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string }) {
     const [placements, setPlacements] = useState<Record<string, unknown>[]>([]);
     const [loading, setLoading]       = useState(true);
     const [search, setSearch]         = useState('');
 
     useEffect(() => {
-        fetch('/api/portal/placements')
+        const url = jobCodes
+            ? `/api/portal/submissions?job_codes=${encodeURIComponent(jobCodes)}`
+            : '/api/portal/submissions';
+        fetch(url)
             .then(r => r.ok ? r.json() : { results: [] })
-            .then(d => { setPlacements(Array.isArray(d.results) ? d.results : []); setLoading(false); })
+            .then(d => {
+                const all: Record<string, unknown>[] = Array.isArray(d.results) ? d.results : [];
+
+                // Log all unique statuses so we can see what CEIPAL returns
+                const statuses = [...new Set(all.map(s => String(s.submission_status || s.pipeline_status || 'empty')))];
+                console.log('[HiredModal] all statuses in submissions:', statuses);
+
+                // Filter hired: stage >= 5 (Placement/Not Joined) OR any status keyword indicating hire
+                // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
+                const hired = all.filter(s => {
+                    const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
+                    return st === 'placement' || st === 'placed' || st.includes('active placement')
+                        || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
+                });
+                console.log('[HiredModal] hired count:', hired.length, '/ total:', all.length);
+                setPlacements(hired);
+                onCountReady?.(hired.length);
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
     }, []);
 
@@ -632,7 +680,7 @@ function HiredModal({ onClose, permissions }: { onClose: () => void; permissions
     const filtered = placements.filter(p => {
         const q = search.toLowerCase();
         return !q ||
-            String(p.consultant_name ?? p.candidate_name ?? '').toLowerCase().includes(q) ||
+            String(p.candidate_name ?? '').toLowerCase().includes(q) ||
             String(p.job_title ?? '').toLowerCase().includes(q) ||
             String(p.job_code ?? '').toLowerCase().includes(q);
     });
@@ -685,12 +733,12 @@ function HiredModal({ onClose, permissions }: { onClose: () => void; permissions
                     ) : (
                         <div className="space-y-3">
                             {filtered.map((p, i) => {
-                                const candidateName = String(p.consultant_name ?? p.candidate_name ?? `Placement #${i + 1}`);
-                                const jobTitle      = String(p.job_title ?? p.position ?? '—');
-                                const jobCode       = String(p.job_code ?? p.job_id ?? '');
-                                const startDate     = String(p.start_date ?? p.joining_date ?? '');
-                                const endDate       = String(p.end_date ?? '');
-                                const location      = [p.city, p.state ?? p.states].filter(Boolean).join(', ');
+                                const candidateName = String(p.candidate_name ?? '') || `Candidate #${i + 1}`;
+                                const jobTitle  = String(p.job_title ?? '—');
+                                const jobCode   = String(p.job_code ?? '');
+                                const submittedOn = String(p.submitted_on ?? '');
+                                const location  = [String(p.job_city ?? ''), String(p.job_state ?? '')].filter(Boolean).join(', ');
+                                const status    = String(p.submission_status || p.pipeline_status || 'Placed');
                                 return (
                                     <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(155,92,246,0.12)' }}>
                                         <div className="flex items-start justify-between gap-3">
@@ -708,17 +756,17 @@ function HiredModal({ onClose, permissions }: { onClose: () => void; permissions
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                                {startDate && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Start: {fmt(startDate)}</span>}
-                                                {endDate   && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>End: {fmt(endDate)}</span>}
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(155,92,246,0.12)', border: '1px solid rgba(155,92,246,0.3)', color: '#C4A8FF', fontFamily: GF }}>✓ {status}</span>
+                                                {!!submittedOn && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>{fmt(submittedOn)}</span>}
                                             </div>
                                         </div>
-                                        {/* Extra details row */}
-                                        <div className="flex flex-wrap gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                            {!!p.placement_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.placement_type)}</span></span>}
-                                            {!!(permissions.show_bill_rate && p.client_bill_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Bill Rate: <span style={{ color: C.cyan }}>{String(p.client_bill_rate)}</span></span>}
-                                            {!!(permissions.show_pay_rate && p.pay_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay Rate: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
-                                            {!!p.work_location && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Location: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.work_location)}</span></span>}
+                                        {/* Extra details */}
+                                        {(p.employment_type || (permissions.show_pay_rate && p.pay_rate)) && (
+                                        <div className="flex flex-wrap gap-4 mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                            {!!p.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.employment_type)}</span></span>}
+                                            {!!(permissions.show_pay_rate && p.pay_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
                                         </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -790,18 +838,26 @@ export default function PortalClient() {
 
     useEffect(() => { if (client) fetchJobs(); }, [client, fetchJobs]);
 
-    // Fetch submission & hired counts for the stat boxes
+    // Fetch counts AFTER jobs are loaded using exact job codes — guaranteed accurate
     useEffect(() => {
-        if (!client) return;
-        fetch('/api/portal/submissions')
-            .then(r => r.ok ? r.json() : { count: 0 })
-            .then(d => setSubmissionCount(typeof d.count === 'number' ? d.count : 0))
-            .catch(() => setSubmissionCount(0));
-        fetch('/api/portal/placements')
-            .then(r => r.ok ? r.json() : { count: 0 })
-            .then(d => setHiredCount(typeof d.count === 'number' ? d.count : 0))
-            .catch(() => setHiredCount(0));
-    }, [client]);
+        if (!client || jobs.length === 0) return;
+        const codes = jobs.map(j => j.job_code).filter(Boolean).join(',');
+        const url = `/api/portal/submissions?job_codes=${encodeURIComponent(codes)}`;
+        fetch(url)
+            .then(r => r.ok ? r.json() : { results: [] })
+            .then(d => {
+                const all: Record<string, unknown>[] = Array.isArray(d.results) ? d.results : [];
+                setSubmissionCount(all.length);
+                // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
+                const hired = all.filter(s => {
+                    const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
+                    return st === 'placement' || st === 'placed' || st.includes('active placement')
+                        || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
+                });
+                setHiredCount(hired.length);
+            })
+            .catch(() => { setSubmissionCount(0); setHiredCount(0); });
+    }, [jobs]);
 
     const handleLogout = async () => {
         await fetch("/api/portal/logout", { method: "POST" });
@@ -1098,12 +1154,16 @@ export default function PortalClient() {
             <SubmissionsModal
                 permissions={client.permissions ?? {}}
                 onClose={() => setShowSubmissions(false)}
+                onCountReady={n => setSubmissionCount(n)}
+                jobCodes={jobs.map(j => j.job_code).filter(Boolean).join(',')}
             />
         )}
         {showHired && (
             <HiredModal
                 permissions={client.permissions ?? {}}
                 onClose={() => setShowHired(false)}
+                onCountReady={n => setHiredCount(n)}
+                jobCodes={jobs.map(j => j.job_code).filter(Boolean).join(',')}
             />
         )}
         </>

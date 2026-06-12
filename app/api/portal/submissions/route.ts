@@ -39,30 +39,45 @@ export async function GET(req: NextRequest) {
 
   const clientId = String(client.id ?? client.name ?? '');
 
+  // Accept explicit job_codes from frontend (most accurate — uses already-loaded job list)
+  const url = new URL(req.url);
+  const jobCodesParam = url.searchParams.get('job_codes');
+  const explicitCodes = jobCodesParam ? jobCodesParam.split(',').map(s => s.trim()).filter(Boolean) : null;
+
   try {
-    // Return cached if fresh and same client
-    if (cache && cache.clientId === clientId && Date.now() - cache.at < CACHE_TTL) {
+    // Only use cache when no explicit job codes provided
+    if (!explicitCodes && cache && cache.clientId === clientId && Date.now() - cache.at < CACHE_TTL) {
       return NextResponse.json({ results: cache.data, count: cache.data.length });
     }
 
     const permissions = (client.permissions as Record<string, boolean>) ?? {};
     const showName    = permissions.show_candidate_name !== false;
-
-    // Get all jobs from cache and filter to this client (same logic as portal/jobs route)
-    const allJobs = await getAllJobs();
     const allowedCodes = (client.allowed_job_codes as string[]) ?? [];
     const ceipalName   = String(client.ceipal_client_name ?? client.company ?? '').toLowerCase().trim();
 
     let jobs: Record<string, unknown>[];
-    if (allowedCodes.length > 0) {
-      jobs = allJobs.filter(j => allowedCodes.includes(String(j.job_code ?? '')));
-    } else if (ceipalName) {
-      jobs = allJobs.filter(j => String(j.client ?? '').toLowerCase().trim() === ceipalName);
+
+    if (explicitCodes && explicitCodes.length > 0) {
+      // Frontend passes job codes already filtered by the portal jobs route (verified by session)
+      // Use the full job info from getAllJobs for enrichment but only for these codes
+      const allJobs = await getAllJobs();
+      const jobMap  = new Map(allJobs.map(j => [String(j.job_code ?? ''), j]));
+      jobs = explicitCodes.map(code => jobMap.get(code) ?? { job_code: code });
     } else {
-      jobs = [];
+      // No explicit codes — derive from session
+      const allJobs = await getAllJobs();
+      if (allowedCodes.length > 0) {
+        jobs = allJobs.filter(j => allowedCodes.includes(String(j.job_code ?? '')));
+      } else if (ceipalName) {
+        jobs = allJobs.filter(j => String(j.client ?? '').toLowerCase().trim() === ceipalName);
+      } else {
+        jobs = [];
+      }
     }
 
     if (jobs.length === 0) return NextResponse.json({ results: [], count: 0 });
+
+    console.log(`[submissions] client="${ceipalName}" using ${jobs.length} jobs:`, jobs.map(j => j.job_code));
 
     // Get job code → v2Id map
     const map = await getJobMap();
@@ -79,6 +94,7 @@ export async function GET(req: NextRequest) {
         if (!v2Id) return [];
 
         const subs = await fetchJobSubmissions(v2Id);
+        if (subs.length > 0) console.log(`[submissions] job=${jobCode} fetched ${subs.length} submissions`);
 
         // Enrich and attach job context
         const enriched = await Promise.all(subs.map(async s => {
