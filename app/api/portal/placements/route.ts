@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/portal-auth';
-import { ceipalFetchV2, CEIPAL_PLACEMENTS_URL } from '@/lib/ceipal';
+import { ceipalFetch, ceipalFetchV2, CEIPAL_PLACEMENTS_URL } from '@/lib/ceipal';
 
 const CACHE_TTL = 5 * 60 * 1000;
 let cache: { data: Record<string, unknown>[]; at: number } | null = null;
@@ -8,7 +8,9 @@ let inflight: Promise<Record<string, unknown>[]> | null = null;
 
 async function fetchAllPlacements(): Promise<Record<string, unknown>[]> {
   const url = `${CEIPAL_PLACEMENTS_URL}?paging_length=500&page=1`;
-  const res = await ceipalFetchV2(url);
+  // Try V1 token first, fall back to V2 if it fails
+  let res = await ceipalFetch(url);
+  if (!res.ok) res = await ceipalFetchV2(url);
   if (!res.ok) throw new Error(`CEIPAL placements ${res.status}`);
   const data = await res.json();
   return Array.isArray(data?.results) ? data.results : [];

@@ -454,6 +454,291 @@ function JobDetailModal({ job, permissions, onClose }: { job: Job; permissions: 
     );
 }
 
+// ─── Submissions Modal ────────────────────────────────────────────────────────
+function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permissions: Record<string, boolean> }) {
+    const [submissions, setSubmissions] = useState<Record<string, unknown>[]>([]);
+    const [loading, setLoading]         = useState(true);
+    const [search, setSearch]           = useState('');
+    const [stageFilter, setStageFilter] = useState('all');
+
+    useEffect(() => {
+        fetch('/api/portal/submissions')
+            .then(r => r.ok ? r.json() : { results: [] })
+            .then(d => { setSubmissions(Array.isArray(d.results) ? d.results : []); setLoading(false); })
+            .catch(() => setLoading(false));
+    }, []);
+
+    const fmt = (d: string) => { try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return d; } };
+
+    const allStages = Array.from(new Set(submissions.map(s => String(s.submission_status || s.pipeline_status || 'Unknown')))).filter(Boolean);
+
+    const filtered = submissions.filter(s => {
+        const matchStage = stageFilter === 'all' || String(s.submission_status || s.pipeline_status || '') === stageFilter;
+        const q = search.toLowerCase();
+        const matchSearch = !q ||
+            String(s.candidate_name ?? '').toLowerCase().includes(q) ||
+            String(s.job_title ?? '').toLowerCase().includes(q) ||
+            String(s.job_code ?? '').toLowerCase().includes(q);
+        return matchStage && matchSearch;
+    });
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto py-6 px-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            onClick={e => e.target === e.currentTarget && onClose()}>
+            <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full max-w-5xl rounded-2xl overflow-hidden"
+                style={{ background: 'linear-gradient(160deg,#07122a 0%,#06091e 100%)', border: '1px solid rgba(87,238,255,0.15)', boxShadow: '0 0 60px rgba(87,238,255,0.07)' }}>
+                <div className="h-px w-full" style={{ background: `linear-gradient(90deg,transparent,${C.cyan}55,transparent)` }} />
+
+                {/* Header */}
+                <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div>
+                        <h2 className="text-xl font-black text-white" style={{ fontFamily: GF }}>Total Submissions</h2>
+                        <p className="text-xs mt-1" style={{ color: 'rgba(170,185,210,0.45)', fontFamily: GF }}>All candidates submitted across your job postings</p>
+                    </div>
+                    <button onClick={onClose} className="text-2xl leading-none transition-colors" style={{ color: 'rgba(170,185,210,0.4)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(170,185,210,0.4)')}>
+                        &times;
+                    </button>
+                </div>
+
+                {/* Filters */}
+                <div className="px-6 py-4 flex flex-wrap gap-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                        placeholder="Search candidate, job title, code…"
+                        className="flex-1 min-w-[200px] px-3 py-2 rounded-lg text-xs focus:outline-none"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }} />
+                    <select value={stageFilter} onChange={e => setStageFilter(e.target.value)}
+                        className="px-3 py-2 rounded-lg text-xs focus:outline-none cursor-pointer"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }}>
+                        <option value="all" style={{ background: '#07122a' }}>All Stages</option>
+                        {allStages.map(s => <option key={s} value={s} style={{ background: '#07122a' }}>{s}</option>)}
+                    </select>
+                    <span className="px-3 py-2 text-xs font-semibold rounded-lg" style={{ background: C.cyanDim, border: `1px solid ${C.cyanBdr}`, color: C.cyanText, fontFamily: GF }}>
+                        {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                    </span>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                    {loading ? (
+                        <div className="flex items-center justify-center gap-3 py-16">
+                            <div className="w-5 h-5 rounded-full animate-spin" style={{ border: '1.5px solid transparent', borderTopColor: C.cyan }} />
+                            <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Loading submissions…</span>
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="py-16 text-center">
+                            <p className="text-sm" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>No submissions found.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filtered.map((sub, i) => {
+                                const status = String(sub.submission_status || sub.pipeline_status || 'Unknown');
+                                const stageIdx = mapStageIdx(status);
+                                const isPlaced = stageIdx >= 5;
+                                return (
+                                    <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-white truncate" style={{ fontFamily: GF }}>
+                                                    {sub.candidate_name ? String(sub.candidate_name) : `Submission #${sub.submission_id ?? i + 1}`}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(87,238,255,0.08)', color: C.cyanText, fontFamily: GF }}>
+                                                        {String(sub.job_code ?? '')}
+                                                    </span>
+                                                    <span className="text-xs" style={{ color: 'rgba(170,185,210,0.5)', fontFamily: GF }}>{String(sub.job_title ?? '')}</span>
+                                                    {sub.job_city && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{String(sub.job_city)}{sub.job_state ? `, ${sub.job_state}` : ''}</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                                                    style={{
+                                                        background: isPlaced ? 'rgba(155,92,246,0.12)' : stageIdx >= 3 ? C.cyanDim : 'rgba(16,185,129,0.08)',
+                                                        border: isPlaced ? '1px solid rgba(155,92,246,0.3)' : stageIdx >= 3 ? `1px solid ${C.cyanBdr}` : '1px solid rgba(16,185,129,0.3)',
+                                                        color: isPlaced ? '#C4A8FF' : stageIdx >= 3 ? C.cyanText : '#6EE7B7',
+                                                        fontFamily: GF,
+                                                    }}>
+                                                    {status}
+                                                </span>
+                                                {sub.submitted_on && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>{fmt(String(sub.submitted_on))}</span>}
+                                            </div>
+                                        </div>
+                                        {/* Pipeline */}
+                                        <div className="flex items-center w-full mt-2">
+                                            {PIPELINE_STAGES.map((stage, idx) => {
+                                                const done = idx < stageIdx; const active = idx === stageIdx;
+                                                return (
+                                                    <div key={stage} className="flex-1 flex flex-col items-center relative min-w-0">
+                                                        {idx < PIPELINE_STAGES.length - 1 && (
+                                                            <div className="absolute top-[7px] left-1/2 w-full h-0.5 z-0" style={{ background: idx < stageIdx ? C.cyan + '88' : 'rgba(255,255,255,0.05)' }} />
+                                                        )}
+                                                        <div className="relative z-10 w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center"
+                                                            style={{ background: active ? C.cyan : done ? C.cyan + '88' : 'rgba(255,255,255,0.07)', borderColor: active ? C.cyan : done ? C.cyan : 'rgba(255,255,255,0.12)', boxShadow: active ? `0 0 6px ${C.cyan}55` : 'none' }}>
+                                                            {done && <svg className="w-2 h-2" fill="none" stroke="white" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                                        </div>
+                                                        <p className="text-[8px] mt-0.5 text-center truncate w-full px-0.5" style={{ color: active ? C.cyanText : done ? C.cyan + 'aa' : 'rgba(170,185,210,0.18)', fontFamily: GF, fontWeight: active ? 600 : 400 }}>
+                                                            {stage.split(' ')[0]}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        {/* Meta */}
+                                        {(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
+                                            <div className="flex flex-wrap gap-4 mt-2">
+                                                {sub.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(sub.employment_type)}</span></span>}
+                                                {permissions.show_pay_rate && sub.pay_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: C.cyan }}>{String(sub.pay_rate)}</span></span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-6 pb-6 pt-4 flex justify-end" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <button onClick={onClose} className="px-5 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(170,185,210,0.6)', fontFamily: GF }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
+                        Close
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
+// ─── Hired Modal ──────────────────────────────────────────────────────────────
+function HiredModal({ onClose, permissions }: { onClose: () => void; permissions: Record<string, boolean> }) {
+    const [placements, setPlacements] = useState<Record<string, unknown>[]>([]);
+    const [loading, setLoading]       = useState(true);
+    const [search, setSearch]         = useState('');
+
+    useEffect(() => {
+        fetch('/api/portal/placements')
+            .then(r => r.ok ? r.json() : { results: [] })
+            .then(d => { setPlacements(Array.isArray(d.results) ? d.results : []); setLoading(false); })
+            .catch(() => setLoading(false));
+    }, []);
+
+    const fmt = (d: string) => { try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return d; } };
+
+    const filtered = placements.filter(p => {
+        const q = search.toLowerCase();
+        return !q ||
+            String(p.consultant_name ?? p.candidate_name ?? '').toLowerCase().includes(q) ||
+            String(p.job_title ?? '').toLowerCase().includes(q) ||
+            String(p.job_code ?? '').toLowerCase().includes(q);
+    });
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto py-6 px-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            onClick={e => e.target === e.currentTarget && onClose()}>
+            <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full max-w-5xl rounded-2xl overflow-hidden"
+                style={{ background: 'linear-gradient(160deg,#07122a 0%,#06091e 100%)', border: '1px solid rgba(155,92,246,0.25)', boxShadow: '0 0 60px rgba(155,92,246,0.07)' }}>
+                <div className="h-px w-full" style={{ background: 'linear-gradient(90deg,transparent,rgba(155,92,246,0.6),transparent)' }} />
+
+                {/* Header */}
+                <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div>
+                        <h2 className="text-xl font-black text-white" style={{ fontFamily: GF }}>Total Hires</h2>
+                        <p className="text-xs mt-1" style={{ color: 'rgba(170,185,210,0.45)', fontFamily: GF }}>All candidates placed/hired for your account</p>
+                    </div>
+                    <button onClick={onClose} className="text-2xl leading-none transition-colors" style={{ color: 'rgba(170,185,210,0.4)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(170,185,210,0.4)')}>
+                        &times;
+                    </button>
+                </div>
+
+                {/* Search */}
+                <div className="px-6 py-4 flex flex-wrap gap-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                        placeholder="Search candidate or job…"
+                        className="flex-1 min-w-[200px] px-3 py-2 rounded-lg text-xs focus:outline-none"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#e8f0ff', fontFamily: GF }} />
+                    <span className="px-3 py-2 text-xs font-semibold rounded-lg" style={{ background: 'rgba(155,92,246,0.1)', border: '1px solid rgba(155,92,246,0.3)', color: '#C4A8FF', fontFamily: GF }}>
+                        {filtered.length} hired
+                    </span>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                    {loading ? (
+                        <div className="flex items-center justify-center gap-3 py-16">
+                            <div className="w-5 h-5 rounded-full animate-spin" style={{ border: '1.5px solid transparent', borderTopColor: '#9B5CF6' }} />
+                            <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Loading placements…</span>
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="py-16 text-center">
+                            <p className="text-sm" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>No hired candidates found.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filtered.map((p, i) => {
+                                const candidateName = String(p.consultant_name ?? p.candidate_name ?? `Placement #${i + 1}`);
+                                const jobTitle      = String(p.job_title ?? p.position ?? '—');
+                                const jobCode       = String(p.job_code ?? p.job_id ?? '');
+                                const startDate     = String(p.start_date ?? p.joining_date ?? '');
+                                const endDate       = String(p.end_date ?? '');
+                                const location      = [p.city, p.state ?? p.states].filter(Boolean).join(', ');
+                                return (
+                                    <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(155,92,246,0.12)' }}>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <p className="text-sm font-bold text-white" style={{ fontFamily: GF }}>{candidateName}</p>
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(155,92,246,0.12)', border: '1px solid rgba(155,92,246,0.3)', color: '#C4A8FF', fontFamily: GF }}>
+                                                        ✓ Hired
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                                                    {jobCode && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(87,238,255,0.08)', color: C.cyanText, fontFamily: GF }}>{jobCode}</span>}
+                                                    <span className="text-xs" style={{ color: 'rgba(170,185,210,0.6)', fontFamily: GF }}>{jobTitle}</span>
+                                                    {location && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>{location}</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                {startDate && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Start: {fmt(startDate)}</span>}
+                                                {endDate   && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>End: {fmt(endDate)}</span>}
+                                            </div>
+                                        </div>
+                                        {/* Extra details row */}
+                                        <div className="flex flex-wrap gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                            {p.placement_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.placement_type)}</span></span>}
+                                            {permissions.show_bill_rate && p.client_bill_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Bill Rate: <span style={{ color: C.cyan }}>{String(p.client_bill_rate)}</span></span>}
+                                            {permissions.show_pay_rate && p.pay_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay Rate: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
+                                            {p.work_location && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Location: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.work_location)}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-6 pb-6 pt-4 flex justify-end" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <button onClick={onClose} className="px-5 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(170,185,210,0.6)', fontFamily: GF }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
+                        Close
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 // ─── Main Portal Dashboard ────────────────────────────────────────────────────
 export default function PortalClient() {
     const [authChecked, setAuthChecked] = useState(false);
@@ -467,6 +752,10 @@ export default function PortalClient() {
     const [scrolled, setScrolled]       = useState(false);
     const [syncing, setSyncing]          = useState(false);
     const [lastSynced, setLastSynced]    = useState<Date | null>(null);
+    const [showSubmissions, setShowSubmissions] = useState(false);
+    const [showHired, setShowHired]             = useState(false);
+    const [submissionCount, setSubmissionCount] = useState<number | null>(null);
+    const [hiredCount, setHiredCount]           = useState<number | null>(null);
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
@@ -500,6 +789,19 @@ export default function PortalClient() {
     }, []);
 
     useEffect(() => { if (client) fetchJobs(); }, [client, fetchJobs]);
+
+    // Fetch submission & hired counts for the stat boxes
+    useEffect(() => {
+        if (!client) return;
+        fetch('/api/portal/submissions')
+            .then(r => r.ok ? r.json() : { count: 0 })
+            .then(d => setSubmissionCount(typeof d.count === 'number' ? d.count : 0))
+            .catch(() => setSubmissionCount(0));
+        fetch('/api/portal/placements')
+            .then(r => r.ok ? r.json() : { count: 0 })
+            .then(d => setHiredCount(typeof d.count === 'number' ? d.count : 0))
+            .catch(() => setHiredCount(0));
+    }, [client]);
 
     const handleLogout = async () => {
         await fetch("/api/portal/logout", { method: "POST" });
@@ -598,16 +900,49 @@ export default function PortalClient() {
                             const isTotal = label === "Total";
                             const isActive = statusFilter === label || (isTotal && statusFilter === "All");
                             const s = STATUS_DARK[label];
+                            const LABEL_MAP: Record<string, string> = {
+                                'total':          'Total Jobs',
+                                'active':         'Active Jobs',
+                                'closed':         'Closed Jobs',
+                                'hold by client': 'Jobs Hold By Client',
+                            };
+                            const displayLabel = LABEL_MAP[label.toLowerCase()] ?? label;
                             return (
                                 <motion.button key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                                     onClick={() => setStatusFilter(isTotal ? "All" : (statusFilter === label ? "All" : label))}
                                     className="p-4 rounded-xl text-left transition-all duration-200"
                                     style={{ background: isActive ? (isTotal ? C.cyanDim : (s?.bg ?? C.cyanDim)) : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? (isTotal ? C.cyanBdr : (s?.border ?? C.cyanBdr)) : 'rgba(255,255,255,0.07)'}` }}>
                                     <p className="text-2xl font-black mb-1" style={{ fontFamily: GF, color: isActive ? (isTotal ? C.cyan : (s?.color ?? C.cyan)) : '#f0f4ff' }}>{count}</p>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: isActive ? (isTotal ? C.cyanText : (s?.color ?? C.cyanText)) : 'rgba(170,185,210,0.45)', fontFamily: GF }}>{label}</p>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: isActive ? (isTotal ? C.cyanText : (s?.color ?? C.cyanText)) : 'rgba(170,185,210,0.45)', fontFamily: GF }}>{displayLabel}</p>
                                 </motion.button>
                             );
                         })}
+
+                        {/* Total Submissions */}
+                        <motion.button initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Object.keys(statusCounts).length * 0.04 }}
+                            onClick={() => setShowSubmissions(true)}
+                            className="p-4 rounded-xl text-left transition-all duration-200 group"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.cyanDim; (e.currentTarget as HTMLElement).style.borderColor = C.cyanBdr; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}>
+                            <p className="text-2xl font-black mb-1" style={{ fontFamily: GF, color: '#f0f4ff' }}>
+                                {submissionCount === null ? '…' : submissionCount}
+                            </p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(170,185,210,0.45)', fontFamily: GF }}>Total Submissions</p>
+                        </motion.button>
+
+                        {/* Total Hires */}
+                        <motion.button initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: (Object.keys(statusCounts).length + 1) * 0.04 }}
+                            onClick={() => setShowHired(true)}
+                            className="p-4 rounded-xl text-left transition-all duration-200 group"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,246,0.1)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(155,92,246,0.3)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}>
+                            <p className="text-2xl font-black mb-1" style={{ fontFamily: GF, color: '#f0f4ff' }}>
+                                {hiredCount === null ? '…' : hiredCount}
+                            </p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(170,185,210,0.45)', fontFamily: GF }}>Total Hires</p>
+                        </motion.button>
                     </motion.div>
                 )}
 
@@ -757,6 +1092,18 @@ export default function PortalClient() {
                 job={selectedJob}
                 permissions={client.permissions ?? {}}
                 onClose={() => setSelectedJob(null)}
+            />
+        )}
+        {showSubmissions && (
+            <SubmissionsModal
+                permissions={client.permissions ?? {}}
+                onClose={() => setShowSubmissions(false)}
+            />
+        )}
+        {showHired && (
+            <HiredModal
+                permissions={client.permissions ?? {}}
+                onClose={() => setShowHired(false)}
             />
         )}
         </>

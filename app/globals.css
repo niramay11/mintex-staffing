@@ -6,10 +6,10 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-inter);
-  --font-bebas: var(--font-bebas);
+  --font-sans:   var(--font-gilroy);
+  --font-bebas:  var(--font-bebas);
   --font-gilroy: var(--font-gilroy);
-  --font-sans: var(--font-gilroy);
+  --font-mono:   ui-monospace, 'Courier New', monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -22,10 +22,14 @@
   }
 }
 
+html {
+  font-family: var(--font-gilroy), system-ui, sans-serif;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-gilroy), system-ui, sans-serif;
   overflow-x: hidden;
 }
 

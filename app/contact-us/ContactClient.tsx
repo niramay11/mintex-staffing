@@ -176,6 +176,7 @@ const ContactClient = () => {
                     <StyledMapBackground
                         onPinReady={() => {}}
                         onPinClick={() => setShowInfo(v => !v)}
+                        onLabelClick={() => setShowInfo(v => !v)}
                     />
                 </motion.div>
 
@@ -220,6 +221,7 @@ const ContactClient = () => {
                 <StyledMapBackground
                     onPinReady={() => {}}
                     onPinClick={() => setShowInfo(v => !v)}
+                    onLabelClick={() => setShowInfo(v => !v)}
                 />
             </div>
 
@@ -252,7 +254,7 @@ const ContactClient = () => {
                     </h1>
                 </motion.div>
 
-                {/* Form + location card side by side — location card is in the grid, never over the map */}
+                {/* Form */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                     <motion.div
                         initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
@@ -261,22 +263,29 @@ const ContactClient = () => {
                     >
                         <FormBlock />
                     </motion.div>
-
-                    {/* Location info — right column, slides in when pin is clicked */}
-                    <AnimatePresence>
-                        {showInfo && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 40 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 40 }}
-                                transition={{ duration: 0.3, ease: "easeOut" }}
-                                className="w-full max-w-lg pointer-events-auto relative"
-                            >
-                                <LocationCard onClose={() => setShowInfo(false)} />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
                 </div>
+
+                {/* Location popup — fixed to top-right corner, never overlaps the map pin */}
+                <AnimatePresence>
+                    {showInfo && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            className="pointer-events-auto relative"
+                            style={{
+                                position: 'fixed',
+                                top: '200px',
+                                right: '100px',
+                                width: '320px',
+                                zIndex: 50,
+                            }}
+                        >
+                            <LocationCard onClose={() => setShowInfo(false)} />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

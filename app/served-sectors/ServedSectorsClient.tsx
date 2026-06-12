@@ -245,8 +245,6 @@ const ServedSectorsClient = () => {
                 ))}
             </div>
 
-            {/* Spacer so the last card can un-stick */}
-            <div style={{ height: '40vh', background: '#000' }} />
         </section>
     );
 };

@@ -5,9 +5,10 @@ interface LabelInfo { x: number; y: number }
 interface Props {
   onPinReady?: (x: number, y: number) => void;
   onPinClick?: (clientX: number, clientY: number) => void;
+  onLabelClick?: () => void;
 }
 
-export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
+export default function StyledMapBackground({ onPinReady, onPinClick, onLabelClick }: Props) {
   const wrapRef        = useRef<HTMLDivElement>(null);
   const mapRef         = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -202,9 +203,10 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
         </div>
       )}
 
-      {/* MINTEX STAFFING label — directly below pin, clamped so never clipped */}
+      {/* MINTEX STAFFING label — directly below pin, clickable */}
       {labelPos && (
         <span
+          onClick={() => onLabelClick?.()}
           style={{
             position:      "absolute",
             left:          Math.max(72, Math.min(labelPos.x, (wrapRef.current?.offsetWidth ?? 400) - 72)),
@@ -220,7 +222,8 @@ export default function StyledMapBackground({ onPinReady, onPinClick }: Props) {
               "1px 1px 0 #000","-1px -1px 0 #000",
               "1px -1px 0 #000","-1px 1px 0 #000",
             ].join(", "),
-            pointerEvents: "none",
+            pointerEvents: "auto",
+            cursor:        "pointer",
             userSelect:    "none",
             zIndex:        20,
             whiteSpace:    "nowrap",
