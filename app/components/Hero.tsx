@@ -40,59 +40,61 @@ const Hero = () => {
       whileInView="visible"
       viewport={{ once: true }}
     >
-      {/* LEFT CONTENT — single top padding clears the fixed navbar on all devices */}
+      {/* LEFT CONTENT */}
       <div
-        className="w-full lg:w-2/3 flex flex-col items-start justify-start px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
+        className="w-full lg:w-2/3 flex flex-col items-start justify-between px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
         style={{
-          paddingTop:    "clamp(130px, 15vh, 175px)",
-          paddingBottom: "clamp(24px, 4vh, 56px)",
+          paddingTop:    "clamp(130px, 15vh, 200px)",
+          paddingBottom: "clamp(32px, 5vh, 72px)",
         }}
       >
-        {/* Heading */}
-        <motion.h1
-          className="font-bold text-white text-left flex flex-wrap gap-x-2 mb-3 md:mb-5"
-          style={{ fontSize: "clamp(1.5rem, 3vw + 0.4rem, 2.6rem)", lineHeight: 1.2 }}
-          variants={headingContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          {["Built","for","Startups.","Trusted","by","Enterprises.","Driving","Talent","at","Every","Stage"].map((word, i) => (
-            <motion.span
-              key={i}
-              variants={wordVariants}
-              className={["Built","Trusted","Driving","Talent"].includes(word) ? "text-[#57EEFF]" : ""}
-            >
-              {word}
-            </motion.span>
-          ))}
-        </motion.h1>
+        {/* Top group: Heading + Subtitle + Button */}
+        <div className="flex flex-col items-start">
+          {/* Heading */}
+          <motion.h1
+            className="font-bold text-white text-left flex flex-wrap gap-x-2 mb-3 md:mb-5"
+            style={{ fontSize: "clamp(1.5rem, 3vw + 0.4rem, 2.6rem)", lineHeight: 1.2 }}
+            variants={headingContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {["Built","for","Startups.","Trusted","by","Enterprises.","Driving","Talent","at","Every","Stage"].map((word, i) => (
+              <motion.span
+                key={i}
+                variants={wordVariants}
+                className={["Built","Trusted","Driving","Talent"].includes(word) ? "text-[#57EEFF]" : ""}
+              >
+                {word}
+              </motion.span>
+            ))}
+          </motion.h1>
 
-        {/* Subtitle */}
-        <motion.p
-          className="text-white mb-4 md:mb-6"
-          style={{ fontSize: "clamp(0.875rem, 1.5vw, 1.15rem)" }}
-          variants={itemVariants}
-          transition={{ delay: 0.6 }}
-        >
-          From bold beginnings to global scale
-          <br className="hidden sm:block" />
-          we deliver talent solutions that grow with you
-        </motion.p>
+          {/* Subtitle */}
+          <motion.p
+            className="text-white mb-4 md:mb-6"
+            style={{ fontSize: "clamp(0.875rem, 1.5vw, 1.15rem)" }}
+            variants={itemVariants}
+            transition={{ delay: 0.6 }}
+          >
+            From bold beginnings to global scale
+            <br className="hidden sm:block" />
+            we deliver talent solutions that grow with you
+          </motion.p>
 
-        {/* Button */}
+          {/* Button */}
+          <motion.div
+            className="w-full sm:w-auto"
+            variants={itemVariants}
+            transition={{ delay: 0.8 }}
+          >
+            <PeakButton />
+          </motion.div>
+        </div>
+
+        {/* Bottom group: Candidates / Clients cards — anchored to bottom via justify-between */}
         <motion.div
-          className="w-full sm:w-auto mb-5 md:mb-8"
-          variants={itemVariants}
-          transition={{ delay: 0.8 }}
-        >
-          <PeakButton />
-        </motion.div>
-
-        {/* Candidates / Clients cards */}
-        <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6"
-          style={{ marginTop: "clamp(12px, 3vh, 48px)" }}
+          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-0"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
