@@ -761,7 +761,7 @@ function HiredModal({ onClose, permissions, onCountReady, jobCodes }: { onClose:
                                             </div>
                                         </div>
                                         {/* Extra details */}
-                                        {(p.employment_type || (permissions.show_pay_rate && p.pay_rate)) && (
+                                        {!!(p.employment_type || (permissions.show_pay_rate && p.pay_rate)) && (
                                         <div className="flex flex-wrap gap-4 mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                                             {!!p.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.employment_type)}</span></span>}
                                             {!!(permissions.show_pay_rate && p.pay_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
