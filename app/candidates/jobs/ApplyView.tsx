@@ -134,7 +134,6 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
         if (!form.mobileNumber.trim() || !/^\d{7,15}$/.test(form.mobileNumber.replace(/[\s\-()]/g, ''))) e.mobileNumber = 'Valid number required';
         if (!form.workAuthorization)   e.workAuthorization = 'Required';
         if (!form.city.trim())         e.city         = 'Required';
-        if (!form.availability.trim()) e.availability = 'Required';
         if (!form.resume)              e.resume       = 'Resume required';
         if (form.signatureType === 'type' && !form.signatureText.trim())
             e.signatureText = 'Please type your signature';
@@ -337,12 +336,11 @@ const ApplyView: React.FC<ApplyViewProps> = ({ jobs, allJobs, onBack, onSuccess 
                                     <FieldError msg={errors.email} />
                                 </div>
                                 <div>
-                                    <FieldLabel required>Availability</FieldLabel>
+                                    <FieldLabel>Availability</FieldLabel>
                                     <input value={form.availability} onChange={e => set('availability', e.target.value)}
-                                        placeholder="e.g. Immediate / 2 weeks" style={inputStyle(errors.availability)}
+                                        placeholder="e.g. Immediate / 2 weeks" style={inputStyle()}
                                         onFocus={e => { e.target.style.borderColor = C.cyanBdr; e.target.style.boxShadow = `0 0 0 3px rgba(87,238,255,0.05)`; }}
-                                        onBlur={e => { e.target.style.borderColor = errors.availability ? C.coralBdr : 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
-                                    <FieldError msg={errors.availability} />
+                                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }} />
                                 </div>
                             </div>
 
