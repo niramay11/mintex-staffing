@@ -423,7 +423,7 @@ function JobDetailModal({ job, permissions, onClose }: { job: Job; permissions: 
                                                         </div>
 
                                                         {/* Meta */}
-                                                        {(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
+                                                        {!!(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
                                                             <div className="flex flex-wrap gap-4 mt-2">
                                                                 {sub.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{sub.employment_type}</span></span>}
                                                                 {sub.tax_term && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Tax: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{sub.tax_term}</span></span>}
@@ -551,7 +551,7 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
                                                         {String(sub.job_code ?? '')}
                                                     </span>
                                                     <span className="text-xs" style={{ color: 'rgba(170,185,210,0.5)', fontFamily: GF }}>{String(sub.job_title ?? '')}</span>
-                                                    {sub.job_city && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{String(sub.job_city)}{sub.job_state ? `, ${sub.job_state}` : ''}</span>}
+                                                    {!!sub.job_city && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.35)', fontFamily: GF }}>{String(sub.job_city)}{sub.job_state ? `, ${String(sub.job_state)}` : ''}</span>}
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -564,7 +564,7 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
                                                     }}>
                                                     {status}
                                                 </span>
-                                                {sub.submitted_on && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>{fmt(String(sub.submitted_on))}</span>}
+                                                {!!sub.submitted_on && <span className="text-[10px]" style={{ color: 'rgba(170,185,210,0.3)', fontFamily: GF }}>{fmt(String(sub.submitted_on))}</span>}
                                             </div>
                                         </div>
                                         {/* Pipeline */}
@@ -588,10 +588,10 @@ function SubmissionsModal({ onClose, permissions }: { onClose: () => void; permi
                                             })}
                                         </div>
                                         {/* Meta */}
-                                        {(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
+                                        {!!(sub.employment_type || sub.tax_term || (permissions.show_pay_rate && sub.pay_rate)) && (
                                             <div className="flex flex-wrap gap-4 mt-2">
-                                                {sub.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(sub.employment_type)}</span></span>}
-                                                {permissions.show_pay_rate && sub.pay_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: C.cyan }}>{String(sub.pay_rate)}</span></span>}
+                                                {!!sub.employment_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(sub.employment_type)}</span></span>}
+                                                {!!(permissions.show_pay_rate && sub.pay_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay: <span style={{ color: C.cyan }}>{String(sub.pay_rate)}</span></span>}
                                             </div>
                                         )}
                                     </div>
@@ -714,10 +714,10 @@ function HiredModal({ onClose, permissions }: { onClose: () => void; permissions
                                         </div>
                                         {/* Extra details row */}
                                         <div className="flex flex-wrap gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                            {p.placement_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.placement_type)}</span></span>}
-                                            {permissions.show_bill_rate && p.client_bill_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Bill Rate: <span style={{ color: C.cyan }}>{String(p.client_bill_rate)}</span></span>}
-                                            {permissions.show_pay_rate && p.pay_rate && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay Rate: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
-                                            {p.work_location && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Location: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.work_location)}</span></span>}
+                                            {!!p.placement_type && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Type: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.placement_type)}</span></span>}
+                                            {!!(permissions.show_bill_rate && p.client_bill_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Bill Rate: <span style={{ color: C.cyan }}>{String(p.client_bill_rate)}</span></span>}
+                                            {!!(permissions.show_pay_rate && p.pay_rate) && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Pay Rate: <span style={{ color: '#6EE7B7' }}>{String(p.pay_rate)}</span></span>}
+                                            {!!p.work_location && <span className="text-xs" style={{ color: 'rgba(170,185,210,0.4)', fontFamily: GF }}>Location: <span style={{ color: 'rgba(200,215,235,0.7)' }}>{String(p.work_location)}</span></span>}
                                         </div>
                                     </div>
                                 );
