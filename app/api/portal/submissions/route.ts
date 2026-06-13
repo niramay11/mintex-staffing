@@ -58,11 +58,8 @@ export async function GET(req: NextRequest) {
     let jobs: Record<string, unknown>[];
 
     if (explicitCodes && explicitCodes.length > 0) {
-      // Frontend passes job codes already filtered by the portal jobs route (verified by session)
-      // Use the full job info from getAllJobs for enrichment but only for these codes
-      const allJobs = await getAllJobs();
-      const jobMap  = new Map(allJobs.map(j => [String(j.job_code ?? ''), j]));
-      jobs = explicitCodes.map(code => jobMap.get(code) ?? { job_code: code });
+      // Use codes directly — no getAllJobs() call needed, avoids 70s delay
+      jobs = explicitCodes.map(code => ({ job_code: code }));
     } else {
       // No explicit codes — derive from session
       const allJobs = await getAllJobs();
@@ -77,7 +74,6 @@ export async function GET(req: NextRequest) {
 
     if (jobs.length === 0) return NextResponse.json({ results: [], count: 0 });
 
-    console.log(`[submissions] client="${ceipalName}" using ${jobs.length} jobs:`, jobs.map(j => j.job_code));
 
     // Get job code → v2Id map
     const map = await getJobMap();
@@ -94,7 +90,6 @@ export async function GET(req: NextRequest) {
         if (!v2Id) return [];
 
         const subs = await fetchJobSubmissions(v2Id);
-        if (subs.length > 0) console.log(`[submissions] job=${jobCode} fetched ${subs.length} submissions`);
 
         // Enrich and attach job context
         const enriched = await Promise.all(subs.map(async s => {

@@ -656,18 +656,14 @@ function HiredModal({ onClose, permissions, onCountReady, jobCodes }: { onClose:
             .then(d => {
                 const all: Record<string, unknown>[] = Array.isArray(d.results) ? d.results : [];
 
-                // Log all unique statuses so we can see what CEIPAL returns
-                const statuses = [...new Set(all.map(s => String(s.submission_status || s.pipeline_status || 'empty')))];
-                console.log('[HiredModal] all statuses in submissions:', statuses);
 
                 // Filter hired: stage >= 5 (Placement/Not Joined) OR any status keyword indicating hire
                 // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
                 const hired = all.filter(s => {
                     const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
-                    return st === 'placement' || st === 'placed' || st.includes('active placement')
+                    return st.includes('placement') || st.includes('placed')
                         || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
                 });
-                console.log('[HiredModal] hired count:', hired.length, '/ total:', all.length);
                 setPlacements(hired);
                 onCountReady?.(hired.length);
                 setLoading(false);
@@ -851,7 +847,7 @@ export default function PortalClient() {
                 // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
                 const hired = all.filter(s => {
                     const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
-                    return st === 'placement' || st === 'placed' || st.includes('active placement')
+                    return st.includes('placement') || st.includes('placed')
                         || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
                 });
                 setHiredCount(hired.length);
