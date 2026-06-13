@@ -42,10 +42,10 @@ const About = () => {
   };
 
   return (
-    <div className="about-bg min-h-max md:min-h-[700px] h-max md:h-screen relative overflow-hidden">
+    <div className="about-bg min-h-max md:min-h-[600px] h-max md:h-auto lg:h-screen relative overflow-hidden">
       {/* Central Text Content */}
       <motion.div
-        className="flex flex-col justify-center items-center max-w-full px-6 md:max-w-[70%] gap-5 mx-auto py-14 relative z-10"
+        className="flex flex-col justify-center items-center max-w-full px-6 sm:px-8 md:max-w-[80%] lg:max-w-[70%] gap-4 sm:gap-5 mx-auto py-12 sm:py-16 relative z-10"
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
@@ -53,21 +53,21 @@ const About = () => {
       >
         <motion.h5
           variants={textItemVariants}
-          className="font-semibold text-center text-white tracking-widest"
+          className="text-xs sm:text-sm font-semibold text-center text-white tracking-widest"
         >
           ABOUT US
         </motion.h5>
 
         <motion.h3
           variants={textItemVariants}
-          className="text-5xl text-center text-[#57EEFF] font-bold"
+          className="text-3xl sm:text-4xl lg:text-5xl text-center text-[#57EEFF] font-bold"
         >
           Mintex Staffing
         </motion.h3>
 
         <motion.p
           variants={textItemVariants}
-          className="text-white text-2xl text-center font-light leading-relaxed"
+          className="text-white text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-center font-light leading-relaxed"
         >
           is a trusted staffing and recruitment agency with a physical presence
           in <span className="text-[#57EEFF] font-normal">Edison, New Jersey</span>,

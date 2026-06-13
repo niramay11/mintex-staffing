@@ -129,7 +129,7 @@ function TiltCard({ children, className, delay }: { children: React.ReactNode; c
       className={` ${className} group`}
     >
       <div
-        className="w-[300px] h-[300px] flex items-center justify-center relative transition-all duration-300 transform group-hover:scale-110"
+        className="w-[260px] h-[260px] sm:w-[300px] sm:h-[300px] flex items-center justify-center relative transition-all duration-300 transform group-hover:scale-110"
         style={{ transformStyle: "preserve-3d" }}
       >
         {children}
@@ -187,7 +187,7 @@ export default function RefinedFiveCardDiamond() {
   ];
 
   return (
-    <div className="relative w-full min-h-screen bg-black flex justify-center items-center overflow-auto md:overflow-hidden py-20" style={{ perspective: "1500px" }}>
+    <div className="relative w-full min-h-[auto] md:min-h-screen bg-black flex justify-center items-center overflow-auto md:overflow-hidden py-12 md:py-20" style={{ perspective: "1500px" }}>
 
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-linear-to-b from-blue-500/10 via-cyan-500/5 to-transparent pointer-events-none" />

@@ -23,7 +23,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
 
     import("leaflet").then((L) => {
       const pinLocation: [number, number] = [40.5768852, -74.384442];
-      const mapCenter:   [number, number] = [40.5768852, -74.384442 - 0.0015];
+      const mapCenter:   [number, number] = [40.5768852, -74.384442];
 
       const map = L.default.map(mapRef.current!, {
         center: mapCenter, zoom: 17,

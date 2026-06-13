@@ -160,7 +160,7 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
 
   return (
     <motion.div
-      className={`w-[180px] h-[200px] ${isDesktop ? "absolute" : "relative"}`}
+      className={`w-[150px] h-[170px] sm:w-[180px] sm:h-[200px] ${isDesktop ? "absolute" : "relative"}`}
       style={isDesktop ? config.desktopPosition : {}}
       initial={{ opacity: 0, y: 80 }}
       animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 80 }}
@@ -208,7 +208,7 @@ const HeroCards: React.FC = () => {
   }, []);
 
   return (
-    <div className={`w-full relative ${isDesktop ? "h-[600px]" : "h-auto py-10 flex flex-col gap-6 items-center"}`}>
+    <div className={`w-full relative ${isDesktop ? "h-[600px]" : "h-auto py-8 sm:py-10 flex flex-row sm:flex-row flex-wrap gap-4 sm:gap-6 items-center justify-center"}`}>
       {heroCardsData.map((card, i) => (
         <FadingCard key={i} config={card} isDesktop={isDesktop} />
       ))}

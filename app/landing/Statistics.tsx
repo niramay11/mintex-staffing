@@ -104,7 +104,9 @@ export default function Statistics({ data }: { data?: StatisticsData | null }) {
             <div
               key={s.id}
               className={`relative p-6 sm:p-8 flex flex-col items-center text-center transition-all duration-400 hover:bg-cyan-500/[0.06] hover:scale-105 hover:shadow-[0_0_30px_rgba(87,238,255,0.15)] group cursor-default ${
-                i < d.stats.length - 1 ? "border-r border-[#57EEFF]/30" : ""
+                i < d.stats.length - 1
+                  ? `border-[#57EEFF]/30 ${i % 2 === 0 ? "border-r" : "lg:border-r"}`
+                  : ""
               } ${i < 2 ? "border-b lg:border-b-0 border-[#57EEFF]/30" : ""}`}
             >
               <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:bg-cyan-500/20 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(87,238,255,0.3)]">

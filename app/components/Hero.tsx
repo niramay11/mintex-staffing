@@ -92,9 +92,9 @@ const Hero = () => {
           </motion.div>
         </div>
 
-        {/* Bottom group: Candidates / Clients cards — anchored to bottom via justify-between */}
+        {/* Bottom group: Candidates / Clients cards — anchored to bottom via justify-between on desktop */}
         <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-0"
+          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-8 lg:mt-0"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -167,7 +167,7 @@ const Hero = () => {
       </div>
 
       {/* RIGHT — Floating hero cards */}
-      <div className="w-full lg:w-1/3 xl:w-1/2 relative mt-8 lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
+      <div className="w-full lg:w-1/3 xl:w-1/2 relative lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
         <HeroCards />
       </div>
     </motion.div>
