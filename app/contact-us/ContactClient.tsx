@@ -9,6 +9,8 @@ import StyledMapBackground from "./StyledMapBackground";
 const ContactClient = () => {
     const [showInfo,  setShowInfo]  = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
+    const [pinCoords, setPinCoords] = useState<{ x: number; y: number } | null>(null);
+    const [scrollY,   setScrollY]   = useState(0);
     const [formData,  setFormData]  = useState({ name: "", email: "", message: "" });
     const [status,    setStatus]    = useState<"idle" | "loading" | "success" | "error">("idle");
     const [errorMessage, setErrorMessage] = useState("");
@@ -18,6 +20,12 @@ const ContactClient = () => {
         check();
         window.addEventListener("resize", check);
         return () => window.removeEventListener("resize", check);
+    }, []);
+
+    useEffect(() => {
+        const onScroll = () => setScrollY(window.scrollY);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -219,7 +227,7 @@ const ContactClient = () => {
             {/* Map background */}
             <div className="absolute inset-0 z-0 lg:z-auto">
                 <StyledMapBackground
-                    onPinReady={() => {}}
+                    onPinReady={(x, y) => setPinCoords({ x, y })}
                     onPinClick={() => setShowInfo(v => !v)}
                     onLabelClick={() => setShowInfo(v => !v)}
                 />
@@ -264,29 +272,31 @@ const ContactClient = () => {
                         <FormBlock />
                     </motion.div>
                 </div>
-
-                {/* Location popup — fixed to top-right corner, never overlaps the map pin */}
-                <AnimatePresence>
-                    {showInfo && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            transition={{ duration: 0.25, ease: "easeOut" }}
-                            className="pointer-events-auto relative"
-                            style={{
-                                position: 'fixed',
-                                top: '200px',
-                                right: '100px',
-                                width: '320px',
-                                zIndex: 50,
-                            }}
-                        >
-                            <LocationCard onClose={() => setShowInfo(false)} />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
+
+            {/* Location popup — position:absolute inside the outer relative div,
+                same coordinate space as the Leaflet map, so it scrolls with the page
+                and stays locked to the pin regardless of scroll position. */}
+            <AnimatePresence>
+                {showInfo && pinCoords && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="pointer-events-auto"
+                        style={{
+                            position: 'fixed',
+                            left: Math.min(pinCoords.x + 160, window.innerWidth - 320),
+                            top: Math.max(90, pinCoords.y - scrollY - 120),
+                            width: '300px',
+                            zIndex: 50,
+                        }}
+                    >
+                        <LocationCard onClose={() => setShowInfo(false)} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

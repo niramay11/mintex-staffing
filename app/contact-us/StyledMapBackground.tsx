@@ -23,7 +23,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
 
     import("leaflet").then((L) => {
       const pinLocation: [number, number] = [40.5768852, -74.384442];
-      const mapCenter:   [number, number] = [40.5768852, -74.384442];
+      const mapCenter:   [number, number] = [40.5768852, -74.384442 - 0.0008];
 
       const map = L.default.map(mapRef.current!, {
         center: mapCenter, zoom: 17,
@@ -83,37 +83,37 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
         let coords = rawCoords;
         if (dist(coords[0], pinLocation) < dist(coords[coords.length - 1], pinLocation))
           coords = [...coords].reverse();
-        const dur = 800;
+        const dur = 400;
         const halo = L.default.polyline(coords, { color: "#93C5FD", weight: 18, opacity: 0.18, lineCap: "round", lineJoin: "round" }).addTo(map);
         animateDraw(halo, dur, delay);
         const core = L.default.polyline(coords, { color: "#BFDBFE", weight: 2.5, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
-        animateDraw(core, dur, delay + 40);
+        animateDraw(core, dur, delay + 20);
         const dash = L.default.polyline(coords, { color: "#FFFFFF", weight: 1.5, opacity: 0, lineCap: "round", lineJoin: "round", dashArray: "10 14" }).addTo(map);
         setTimeout(() => {
           const el = dash.getElement() as SVGPathElement | null;
           if (!el) return;
           el.style.opacity   = "0.55";
           el.style.animation = "roadDashFlow 0.6s linear infinite";
-        }, delay + dur + 80);
+        }, delay + dur + 40);
       };
 
-      map.whenReady(() => {
-        if (!mapInstanceRef.current) return;
+      const ROAD_CACHE_KEY = "mintex_roads_v1";
 
+      const drawRoads = (data: any) => {
+        if (!data.elements || !mapInstanceRef.current) return;
+        data.elements
+          .filter((el: any) => el.geometry?.length >= 2)
+          .map((el: any) => el.geometry.map((p: any) => [p.lat, p.lon] as [number, number]))
+          .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 4));
+      };
+
+      // Draw pin position and fire cached roads immediately after a short settle
+      setTimeout(() => {
+        if (!mapInstanceRef.current) return;
         const pt = map.latLngToContainerPoint(L.default.latLng(pinLocation[0], pinLocation[1]));
         setPinPos({ x: pt.x, y: pt.y });
         setLabelPos({ x: pt.x, y: pt.y + 44 });
         onPinReady?.(pt.x, pt.y);
-
-        const ROAD_CACHE_KEY = "mintex_roads_v1";
-
-        const drawRoads = (data: any) => {
-          if (!data.elements || !mapInstanceRef.current) return;
-          data.elements
-            .filter((el: any) => el.geometry?.length >= 2)
-            .map((el: any) => el.geometry.map((p: any) => [p.lat, p.lon] as [number, number]))
-            .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 12));
-        };
 
         try {
           const cached = sessionStorage.getItem(ROAD_CACHE_KEY);
@@ -123,11 +123,12 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
           }
         } catch (_) {}
 
-        const b   = map.getBounds();
-        const pad = 0.001;
+        // No cache — fetch from Overpass
+        const b    = map.getBounds();
+        const pad  = 0.001;
         const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
-        const q   = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
-        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
+        const q    = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
+        const url  = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
 
         const fetchRoads = (attempt: number) => {
           fetch(url)
@@ -137,7 +138,6 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
               drawRoads(data);
             })
             .catch(() => {
-              // Retry once after 1 second if first attempt fails
               if (attempt < 2 && mapInstanceRef.current) {
                 setTimeout(() => fetchRoads(attempt + 1), 1000);
               }
@@ -145,7 +145,7 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
         };
 
         fetchRoads(1);
-      });
+      }, 300);
     });
 
     return () => {
