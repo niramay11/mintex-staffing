@@ -169,11 +169,12 @@ const PIPELINE_STAGES = ['Pipeline','Submission','Client Submission','Interview'
 
 function mapStageIdx(status: string): number {
     const s = (status ?? '').toLowerCase();
-    if (s.includes('not joined'))                               return 6;
-    if (s.includes('placement') || s.includes('placed'))       return 5;
-    if (s.includes('confirmation') || s.includes('confirmed')) return 4;
-    if (s.includes('interview'))                               return 3;
-    if (s.includes('client submission') || s.includes('waiting')) return 2;
+    if (s.includes('not joined'))                                        return 6;
+    if (s.includes('placement') || s.includes('placed'))                return 5;
+    if (s.includes('offer accepted'))                                    return 5;
+    if (s.includes('confirmation') || s.includes('confirmed'))          return 4;
+    if (s.includes('interview'))                                         return 3;
+    if (s.includes('client submission') || s.includes('waiting'))       return 2;
     if (s.includes('submission') || s.includes('submitted') || s.includes('approved')) return 1;
     return 0;
 }
@@ -455,13 +456,17 @@ function JobDetailModal({ job, permissions, onClose }: { job: Job; permissions: 
 }
 
 // ─── Submissions Modal ────────────────────────────────────────────────────────
-function SubmissionsModal({ onClose, permissions, onCountReady, jobCodes }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string }) {
-    const [submissions, setSubmissions] = useState<Record<string, unknown>[]>([]);
-    const [loading, setLoading]         = useState(true);
+function SubmissionsModal({ onClose, permissions, onCountReady, jobCodes, initialData }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string; initialData?: Record<string, unknown>[] }) {
+    const [submissions, setSubmissions] = useState<Record<string, unknown>[]>(initialData ?? []);
+    const [loading, setLoading]         = useState(!initialData);
     const [search, setSearch]           = useState('');
     const [stageFilter, setStageFilter] = useState('all');
 
     useEffect(() => {
+        if (initialData) {
+            onCountReady?.(initialData.length);
+            return;
+        }
         const url = jobCodes
             ? `/api/portal/submissions?job_codes=${encodeURIComponent(jobCodes)}`
             : '/api/portal/submissions';
@@ -642,12 +647,23 @@ function SubmissionsModal({ onClose, permissions, onCountReady, jobCodes }: { on
 }
 
 // ─── Hired Modal ──────────────────────────────────────────────────────────────
-function HiredModal({ onClose, permissions, onCountReady, jobCodes }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string }) {
-    const [placements, setPlacements] = useState<Record<string, unknown>[]>([]);
-    const [loading, setLoading]       = useState(true);
+function HiredModal({ onClose, permissions, onCountReady, jobCodes, initialData }: { onClose: () => void; permissions: Record<string, boolean>; onCountReady?: (n: number) => void; jobCodes?: string; initialData?: Record<string, unknown>[] }) {
+    const filterHired = (all: Record<string, unknown>[]) => all.filter(s => {
+        const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
+        return st.includes('placement') || st.includes('placed') || st.includes('offer accepted')
+            || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
+    });
+
+    const [placements, setPlacements] = useState<Record<string, unknown>[]>(initialData ? filterHired(initialData) : []);
+    const [loading, setLoading]       = useState(!initialData);
     const [search, setSearch]         = useState('');
 
     useEffect(() => {
+        if (initialData) {
+            const hired = filterHired(initialData);
+            onCountReady?.(hired.length);
+            return;
+        }
         const url = jobCodes
             ? `/api/portal/submissions?job_codes=${encodeURIComponent(jobCodes)}`
             : '/api/portal/submissions';
@@ -655,15 +671,7 @@ function HiredModal({ onClose, permissions, onCountReady, jobCodes }: { onClose:
             .then(r => r.ok ? r.json() : { results: [] })
             .then(d => {
                 const all: Record<string, unknown>[] = Array.isArray(d.results) ? d.results : [];
-
-
-                // Filter hired: stage >= 5 (Placement/Not Joined) OR any status keyword indicating hire
-                // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
-                const hired = all.filter(s => {
-                    const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
-                    return st.includes('placement') || st.includes('placed')
-                        || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
-                });
+                const hired = filterHired(all);
                 setPlacements(hired);
                 onCountReady?.(hired.length);
                 setLoading(false);
@@ -800,6 +808,7 @@ export default function PortalClient() {
     const [showHired, setShowHired]             = useState(false);
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [hiredCount, setHiredCount]           = useState<number | null>(null);
+    const [cachedSubmissions, setCachedSubmissions] = useState<Record<string, unknown>[] | null>(null);
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
@@ -834,7 +843,7 @@ export default function PortalClient() {
 
     useEffect(() => { if (client) fetchJobs(); }, [client, fetchJobs]);
 
-    // Fetch counts AFTER jobs are loaded using exact job codes — guaranteed accurate
+    // Fetch submissions once AFTER jobs are loaded — results shared with modals to avoid re-fetches
     useEffect(() => {
         if (!client || jobs.length === 0) return;
         const codes = jobs.map(j => j.job_code).filter(Boolean).join(',');
@@ -843,11 +852,11 @@ export default function PortalClient() {
             .then(r => r.ok ? r.json() : { results: [] })
             .then(d => {
                 const all: Record<string, unknown>[] = Array.isArray(d.results) ? d.results : [];
+                setCachedSubmissions(all);
                 setSubmissionCount(all.length);
-                // Only truly placed/hired — "Offer Accepted" and similar are NOT hires
                 const hired = all.filter(s => {
                     const st = String(s.submission_status || s.pipeline_status || '').toLowerCase();
-                    return st.includes('placement') || st.includes('placed')
+                    return st.includes('placement') || st.includes('placed') || st.includes('offer accepted')
                         || mapStageIdx(String(s.submission_status || s.pipeline_status || '')) === 5;
                 });
                 setHiredCount(hired.length);
@@ -1152,6 +1161,7 @@ export default function PortalClient() {
                 onClose={() => setShowSubmissions(false)}
                 onCountReady={n => setSubmissionCount(n)}
                 jobCodes={jobs.map(j => j.job_code).filter(Boolean).join(',')}
+                initialData={cachedSubmissions ?? undefined}
             />
         )}
         {showHired && (
@@ -1160,6 +1170,7 @@ export default function PortalClient() {
                 onClose={() => setShowHired(false)}
                 onCountReady={n => setHiredCount(n)}
                 jobCodes={jobs.map(j => j.job_code).filter(Boolean).join(',')}
+                initialData={cachedSubmissions ?? undefined}
             />
         )}
         </>

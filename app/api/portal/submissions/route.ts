@@ -7,7 +7,8 @@ import { getAllJobs } from '@/lib/data-cache';
 export const maxDuration = 60;
 
 const CACHE_TTL = 3 * 60 * 1000;
-let cache: { data: Record<string, unknown>[]; clientId: string; at: number } | null = null;
+// Keyed by `clientId:sortedJobCodes` — covers both explicit and derived code requests
+const cacheMap = new Map<string, { data: Record<string, unknown>[]; at: number }>();
 
 async function fetchApplicantName(jobSeekerId: string): Promise<string> {
   try {
@@ -39,15 +40,19 @@ export async function GET(req: NextRequest) {
 
   const clientId = String(client.id ?? client.name ?? '');
 
-  // Accept explicit job_codes from frontend (most accurate — uses already-loaded job list)
   const url = new URL(req.url);
   const jobCodesParam = url.searchParams.get('job_codes');
   const explicitCodes = jobCodesParam ? jobCodesParam.split(',').map(s => s.trim()).filter(Boolean) : null;
 
+  // Cache key includes sorted job codes so each unique set of codes has its own entry
+  const cacheKey = explicitCodes
+    ? `${clientId}:${[...explicitCodes].sort().join(',')}`
+    : `${clientId}:derived`;
+
   try {
-    // Only use cache when no explicit job codes provided
-    if (!explicitCodes && cache && cache.clientId === clientId && Date.now() - cache.at < CACHE_TTL) {
-      return NextResponse.json({ results: cache.data, count: cache.data.length });
+    const cached = cacheMap.get(cacheKey);
+    if (cached && Date.now() - cached.at < CACHE_TTL) {
+      return NextResponse.json({ results: cached.data, count: cached.data.length });
     }
 
     const permissions = (client.permissions as Record<string, boolean>) ?? {};
@@ -58,10 +63,8 @@ export async function GET(req: NextRequest) {
     let jobs: Record<string, unknown>[];
 
     if (explicitCodes && explicitCodes.length > 0) {
-      // Use codes directly — no getAllJobs() call needed, avoids 70s delay
       jobs = explicitCodes.map(code => ({ job_code: code }));
     } else {
-      // No explicit codes — derive from session
       const allJobs = await getAllJobs();
       if (allowedCodes.length > 0) {
         jobs = allJobs.filter(j => allowedCodes.includes(String(j.job_code ?? '')));
@@ -74,11 +77,8 @@ export async function GET(req: NextRequest) {
 
     if (jobs.length === 0) return NextResponse.json({ results: [], count: 0 });
 
-
-    // Get job code → v2Id map
     const map = await getJobMap();
 
-    // Fetch submissions for all jobs in parallel (max 8 at a time)
     const BATCH = 8;
     const allSubmissions: Record<string, unknown>[] = [];
 
@@ -91,22 +91,28 @@ export async function GET(req: NextRequest) {
 
         const subs = await fetchJobSubmissions(v2Id);
 
-        // Enrich and attach job context
         const enriched = await Promise.all(subs.map(async s => {
           const sub: Record<string, unknown> = { ...s };
 
-          if (showName && sub.job_seeker_id) {
-            const name = await fetchApplicantName(String(sub.job_seeker_id));
-            if (name) sub.candidate_name = name;
+          // Use name already present in the submission as primary fallback
+          const rawName = String(
+            s.candidate_name ?? s.applicant_name ?? s.consultant_name ?? ''
+          ).trim();
+
+          if (showName) {
+            if (sub.job_seeker_id) {
+              const fetchedName = await fetchApplicantName(String(sub.job_seeker_id));
+              sub.candidate_name = fetchedName || rawName;
+            } else if (rawName) {
+              sub.candidate_name = rawName;
+            }
           }
 
-          // Attach job context
           sub.job_code  = jobCode;
           sub.job_title = job.job_title ?? '';
           sub.job_city  = job.city ?? '';
           sub.job_state = job.states ?? '';
 
-          // Strip sensitive fields
           delete sub.submitted_by;
           delete sub.tagged_by;
           delete sub.job_seeker_id;
@@ -126,14 +132,13 @@ export async function GET(req: NextRequest) {
       for (const r of results) allSubmissions.push(...r);
     }
 
-    // Sort by submitted_on descending
     allSubmissions.sort((a, b) => {
       const da = new Date(String(a.submitted_on ?? '')).getTime() || 0;
       const db = new Date(String(b.submitted_on ?? '')).getTime() || 0;
       return db - da;
     });
 
-    cache = { data: allSubmissions, clientId, at: Date.now() };
+    cacheMap.set(cacheKey, { data: allSubmissions, at: Date.now() });
     return NextResponse.json({ results: allSubmissions, count: allSubmissions.length });
 
   } catch (err) {
