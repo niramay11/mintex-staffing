@@ -32,7 +32,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .select('id, username, name, email, company, permissions, is_active, created_at')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === '23505') {
+      const field = error.message.includes('email') ? 'Email' : 'Username';
+      return NextResponse.json({ error: `${field} already exists` }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   // If admin explicitly requested resend, send email
   if (body.resend_email && data.email && body.password) {

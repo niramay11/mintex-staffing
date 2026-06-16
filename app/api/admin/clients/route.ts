@@ -50,7 +50,10 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    if (error.code === '23505') return NextResponse.json({ error: 'Username already exists' }, { status: 409 });
+    if (error.code === '23505') {
+      const field = error.message.includes('email') ? 'email' : 'username';
+      return NextResponse.json({ error: `${field === 'email' ? 'Email' : 'Username'} already exists` }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
