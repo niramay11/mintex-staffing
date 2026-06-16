@@ -107,45 +107,48 @@ export default function StyledMapBackground({ onPinReady, onPinClick, onLabelCli
           .forEach((coords: [number, number][], i: number) => drawRoadGlow(coords, i * 4));
       };
 
-      // Draw pin position and fire cached roads immediately after a short settle
-      setTimeout(() => {
-        if (!mapInstanceRef.current) return;
-        const pt = map.latLngToContainerPoint(L.default.latLng(pinLocation[0], pinLocation[1]));
-        setPinPos({ x: pt.x, y: pt.y });
-        setLabelPos({ x: pt.x, y: pt.y + 44 });
-        onPinReady?.(pt.x, pt.y);
+      // whenReady fires as soon as Leaflet has sized the container and SVG panes exist —
+      // rAF waits one paint so polyline elements are actually in the DOM before we animate
+      map.whenReady(() => {
+        requestAnimationFrame(() => {
+          if (!mapInstanceRef.current) return;
+          const pt = map.latLngToContainerPoint(L.default.latLng(pinLocation[0], pinLocation[1]));
+          setPinPos({ x: pt.x, y: pt.y });
+          setLabelPos({ x: pt.x, y: pt.y + 44 });
+          onPinReady?.(pt.x, pt.y);
 
-        try {
-          const cached = sessionStorage.getItem(ROAD_CACHE_KEY);
-          if (cached) {
-            drawRoads(JSON.parse(cached));
-            return;
-          }
-        } catch (_) {}
+          try {
+            const cached = sessionStorage.getItem(ROAD_CACHE_KEY);
+            if (cached) {
+              drawRoads(JSON.parse(cached));
+              return;
+            }
+          } catch (_) {}
 
-        // No cache — fetch from Overpass
-        const b    = map.getBounds();
-        const pad  = 0.001;
-        const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
-        const q    = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
-        const url  = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
+          // No cache — fetch from Overpass
+          const b    = map.getBounds();
+          const pad  = 0.001;
+          const bbox = `${b.getSouth()-pad},${b.getWest()-pad},${b.getNorth()+pad},${b.getEast()+pad}`;
+          const q    = `[out:json][timeout:20];way["highway"](${bbox});out geom tags;`;
+          const url  = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
 
-        const fetchRoads = (attempt: number) => {
-          fetch(url)
-            .then(r => r.json())
-            .then((data: any) => {
-              try { sessionStorage.setItem(ROAD_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-              drawRoads(data);
-            })
-            .catch(() => {
-              if (attempt < 2 && mapInstanceRef.current) {
-                setTimeout(() => fetchRoads(attempt + 1), 1000);
-              }
-            });
-        };
+          const fetchRoads = (attempt: number) => {
+            fetch(url)
+              .then(r => r.json())
+              .then((data: any) => {
+                try { sessionStorage.setItem(ROAD_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+                drawRoads(data);
+              })
+              .catch(() => {
+                if (attempt < 2 && mapInstanceRef.current) {
+                  setTimeout(() => fetchRoads(attempt + 1), 1000);
+                }
+              });
+          };
 
-        fetchRoads(1);
-      }, 300);
+          fetchRoads(1);
+        });
+      });
     });
 
     return () => {

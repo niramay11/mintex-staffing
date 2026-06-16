@@ -57,8 +57,8 @@ const ContactClient = () => {
         }
     };
 
-    /* ── Shared form JSX ─────────────────────────────────────────── */
-    const FormBlock = () => (
+    /* ── Shared form JSX — plain variable, NOT a nested component, to avoid remount-on-render ── */
+    const formBlock = (
         <form onSubmit={handleSubmit} className="space-y-6 bg-[#051116]/80 p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-sm relative">
             <div className="absolute inset-0 rounded-3xl shadow-[0_0_60px_-15px_rgba(8,145,178,0.5)] pointer-events-none z-[-1]" />
             <div>
@@ -97,8 +97,8 @@ const ContactClient = () => {
         </form>
     );
 
-    /* ── Location info card JSX (shared) ─────────────────────────── */
-    const LocationCard = ({ onClose }: { onClose: () => void }) => (
+    /* ── Location info card — plain function, not a nested component ── */
+    const renderLocationCard = (onClose: () => void) => (
         <div style={{
             background: 'rgba(5,17,22,0.97)', backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(147,197,253,0.2)',
@@ -198,7 +198,7 @@ const ContactClient = () => {
                             transition={{ duration: 0.25 }}
                             className="mx-4 mb-6 relative"
                         >
-                            <LocationCard onClose={() => setShowInfo(false)} />
+                            {renderLocationCard(() => setShowInfo(false))}
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -212,7 +212,7 @@ const ContactClient = () => {
                     className="mx-4"
                 >
                     <h2 className="text-lg font-semibold text-white/70 uppercase tracking-widest mb-4">Send A Message</h2>
-                    <FormBlock />
+                    {formBlock}
                 </motion.div>
             </div>
         );
@@ -269,7 +269,7 @@ const ContactClient = () => {
                         transition={{ duration: 0.8, delay: 0.2 }}
                         className="w-full max-w-lg pointer-events-auto"
                     >
-                        <FormBlock />
+                        {formBlock}
                     </motion.div>
                 </div>
             </div>
@@ -293,7 +293,7 @@ const ContactClient = () => {
                             zIndex: 50,
                         }}
                     >
-                        <LocationCard onClose={() => setShowInfo(false)} />
+                        {renderLocationCard(() => setShowInfo(false))}
                     </motion.div>
                 )}
             </AnimatePresence>
