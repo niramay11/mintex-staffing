@@ -42,7 +42,7 @@ body {
   animation: fadeInUp 0.45s ease both;
 }
 
-
+ 
 .bg-hero {
   background-image: url("../app/assets/hero-bg.png");
   background-position: center;
@@ -271,7 +271,7 @@ body {
   mask-composite: exclude;
 }
 
-/* ── CEIPAL HTML job description styles ────────────────────────────── */
+/* ────────────────────────────── CEIPAL HTML job description styles ────────────────────────────── */
 .jd-html p   { margin-bottom: 0.6rem; color: rgba(200,215,235,0.75); line-height: 1.75; }
 .jd-html ul,
 .jd-html ol  { padding-left: 1.4rem; margin-bottom: 0.75rem; }

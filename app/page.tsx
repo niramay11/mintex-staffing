@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Mintex Staffing connects top talent with industry-leading organizations. We build futures, not just careers.",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   return (
     <main className="max-w-screen overflow-clip">

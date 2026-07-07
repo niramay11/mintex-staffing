@@ -9,19 +9,19 @@ const workTypes = [
         label: "DIRECT HIRE",
         // Increased opacity for a "more solid" look
         color: "rgba(0, 255, 255, 0.7)",
-        text: "We Can Connect Companies With Talent And Put Them Together For A Long Term Solution."
+        text: "Found Your Forever Home. Full-Time Status, Direct Placement, Maximum Stability."
     },
     {
         id: 2,
         label: "CONTRACT-TO-HIRE",
         color: "rgba(0, 255, 255, 0.7)",
-        text: "We Can Connect Companies With Talent And Put Them Together For A Long Term Solution."
+        text: "Try Before You Buy. See If You Actually Like The Company Culture Before You Sign The Long-Term Lease."
     },
     {
         id: 3,
         label: "CONTRACT",
         color: "rgba(0, 255, 255, 0.7)",
-        text: "We Can Connect Companies With Talent And Put Them Together For A Long Term Solution."
+        text: "Get In, Get Paid, Get Out. High-Flexibility Roles For Talent That Loves A Fresh Challenge."
     }
 ];
 
