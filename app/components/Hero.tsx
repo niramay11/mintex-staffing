@@ -45,7 +45,7 @@ const Hero = () => {
         className="w-full lg:w-1/2 flex flex-col items-start justify-center px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
         style={{
           paddingTop:    "clamp(130px, 15vh, 200px)",
-          paddingBottom: "clamp(32px, 5vh, 72px)",
+          paddingBottom: "clamp(20px, 4vh, 56px)",
         }}
       >
         {/* Top group: Heading + Subtitle + Button */}
@@ -94,7 +94,7 @@ const Hero = () => {
 
         {/* Bottom group: Candidates / Clients cards */}
         <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-10 sm:mt-12 lg:mt-14 xl:mt-16"
+          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-8 sm:mt-8 lg:mt-8 xl:mt-10"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -103,7 +103,7 @@ const Hero = () => {
           {/* Candidates */}
           <motion.div
             className="group relative w-full sm:w-[48%] lg:w-80 xl:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
-            style={{ padding: "clamp(18px, 2.5vh, 36px) clamp(18px, 2vw, 36px)" }}
+            style={{ padding: "clamp(14px, 2vh, 28px) clamp(18px, 2vw, 36px)" }}
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
@@ -135,7 +135,7 @@ const Hero = () => {
           {/* Clients */}
           <motion.div
             className="group relative w-full sm:w-[48%] lg:w-80 xl:w-96 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl flex flex-col gap-4 shadow-[0_0_40px_-10px_rgba(87,238,255,0.1)] transition-all hover:border-[#57EEFF]/50 hover:shadow-[0_0_40px_-10px_rgba(87,238,255,0.3)]"
-            style={{ padding: "clamp(18px, 2.5vh, 36px) clamp(18px, 2vw, 36px)" }}
+            style={{ padding: "clamp(14px, 2vh, 28px) clamp(18px, 2vw, 36px)" }}
             variants={cardVariants}
           >
             <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent rounded-2xl pointer-events-none" />
