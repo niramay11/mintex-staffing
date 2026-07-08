@@ -42,7 +42,13 @@ interface RotatingCardConfig extends BaseCardData {
   content: CardContentData[];
 }
 
-const heroCardsData: RotatingCardConfig[] = [
+const ICONS: Record<string, React.ReactNode> = {
+  chart: <HiMiniChartBarSquare className="text-yellow-300 text-3xl" />,
+  users: <HiMiniUserGroup className="text-green-300 text-3xl" />,
+  building: <HiMiniBuildingOffice2 className="text-blue-300 text-3xl" />,
+};
+
+const defaultHeroCardsData: RotatingCardConfig[] = [
   {
     type: 'stat',
     // Fixed 130px from top — always safely below the fixed navbar (~116px)
@@ -50,9 +56,9 @@ const heroCardsData: RotatingCardConfig[] = [
     delay: 0.2,
     rotationInterval: 4000,
     content: [
-      { value: "150+", label: "Recruiters", icon: <HiMiniChartBarSquare className="text-yellow-300 text-3xl" /> },
-      { value: "10k+", label: "Placements", icon: <HiMiniUserGroup className="text-green-300 text-3xl" /> },
-      { value: "500+", label: "Companies", icon: <HiMiniBuildingOffice2 className="text-blue-300 text-3xl" /> },
+      { value: "150+", label: "Recruiters", icon: ICONS.chart },
+      { value: "10k+", label: "Placements", icon: ICONS.users },
+      { value: "500+", label: "Companies", icon: ICONS.building },
     ] as StatData[]
   },
   {
@@ -78,6 +84,33 @@ const heroCardsData: RotatingCardConfig[] = [
     ] as ProfileData[]
   }
 ];
+
+type HeroApiStat = { id: string; value: string; label: string; icon_key: string };
+type HeroApiJob = { id: string; job_title: string; location: string; label: string };
+type HeroApiProfile = { id: string; name: string; role: string; sub: string; initial: string; image_url: string | null };
+
+function buildHeroCardsData(api: { stats: HeroApiStat[]; jobs: HeroApiJob[]; profiles: HeroApiProfile[] }): RotatingCardConfig[] {
+  return [
+    {
+      ...defaultHeroCardsData[0],
+      content: api.stats.length
+        ? api.stats.map(s => ({ value: s.value, label: s.label, icon: ICONS[s.icon_key] ?? ICONS.chart })) as StatData[]
+        : defaultHeroCardsData[0].content,
+    },
+    {
+      ...defaultHeroCardsData[1],
+      content: api.jobs.length
+        ? api.jobs.map(j => ({ jobTitle: j.job_title, location: j.location, label: j.label })) as JobData[]
+        : defaultHeroCardsData[1].content,
+    },
+    {
+      ...defaultHeroCardsData[2],
+      content: api.profiles.length
+        ? api.profiles.map(p => ({ name: p.name, role: p.role, sub: p.sub, initial: p.initial, image: p.image_url || Profile })) as ProfileData[]
+        : defaultHeroCardsData[2].content,
+    },
+  ];
+}
 
 const StatContent = ({ data }: { data: StatData }) => (
   <div className="flex flex-col items-center justify-center h-full p-4 text-center">
@@ -199,12 +232,24 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
 
 const HeroCards: React.FC = () => {
   const [isDesktop, setIsDesktop] = useState(false);
+  const [heroCardsData, setHeroCardsData] = useState<RotatingCardConfig[]>(defaultHeroCardsData);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/hero-cards")
+      .then(r => r.json())
+      .then(data => {
+        if (data?.stats || data?.jobs || data?.profiles) {
+          setHeroCardsData(buildHeroCardsData(data));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (

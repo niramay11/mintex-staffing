@@ -21,7 +21,7 @@ export const SECTORS: Sector[] = [
         bg: IT,
         title: 'IT Recruitment Solutions That Power Innovation',
         subtitle: '(and Fix What You ‘Turned Off and On’ Twice)',
-        description: 'At Mintex Staffing, we connect you with the tech geniuses who make your systems run smoother than your morning coffee. Contract, temp-to-perm, or direct hire — we bring you people who speak fluent code and calm chaos.',
+        description: 'At Mintex Staffing, we connect you with the tech geniuses who make your systems run smoother than your morning coffee. Contract, temp-to-perm, or direct hire; we bring you people who speak fluent code and calm chaos.',
         roles: [
             'IT Support Specialist',
             'Help Desk Technician',
@@ -43,7 +43,7 @@ export const SECTORS: Sector[] = [
         title: 'Healthcare Recruitment Solutions That Care',
         bg: Healthcare,
         subtitle: '(Without Losing Their Patients… or Patience)',
-        description: 'At Mintex Staffing, we connect healthcare facilities with professionals who treat people, not just paperwork. Whether you need help stat or steady support, we’ve got the right hands on deck.',
+        description: 'At Mintex Staffing, we connect healthcare facilities with professionals who treat people, not just paperwork. Whether you need help stat or steady support, we’ve got the right hands-on deck.',
         roles: [
             'Medical Assistant',
             'Phlebotomist',
@@ -63,7 +63,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Engineering',
         title: 'Engineering Recruitment Solutions That Actually Work',
         bg: Engineering,
-        description: 'We get it — your projects need people who think in blueprints and dream in 3D. At Mintex Staffing, we deliver engineers who turn “it should work” into “it does.”',
+        subtitle: '(Because "It Should Fit" Isn’t a Valid Structural Strategy)',
+        description: 'We get it; your projects need people who think in blueprints and dream in 3D. At Mintex Staffing, we deliver engineers and technical experts who turn “it should work” into “it does.”',
         roles: [
             'Engineering Assistant',
             'CAD Technician',
@@ -82,7 +83,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Finance and Accounting',
         title: 'Accounting & Finance Recruitment Solutions That Make Cents',
         bg: Finance,
-        description: 'At Mintex Staffing, we connect you with financial pros who can balance more than just spreadsheets including your sanity.',
+        subtitle: '(To Balance Your Books and Keep Your Sanity)',
+        description: 'At Mintex Staffing, we connect you with financial pros who can spot a missing decimal from a mile away. From tax season crunchers to long-term strategists, we find the talent that keeps you comfortably in the black.',
         roles: [
             'Accounts Clerk',
             'Bookkeeper',
@@ -101,7 +103,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Industrial and Manufacturing',
         title: 'Manufacturing Recruitment Solutions That Keep the Line Rolling',
         bg: Industrial,
-        description: 'Machines don’t run themselves (yet). That’s where we come in. At Mintex Staffing, we connect you with dependable doers who keep the gears turning and the lights on.',
+        subtitle: '(Because the Robots Haven’t Taken Over… Yet)',
+        description: 'Machines don’t run themselves. That’s where we come in. At Mintex Staffing, we connect you with dependable, hardworking doers who keep the gears turning, safety standards met, and the facility humming.',
         roles: [
             'Assembler',
             'Machine Operator',
@@ -121,7 +124,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Administrative and Clerical',
         title: 'Clerical Recruitment Solutions That Actually Get Things Done',
         bg: Administrative,
-        description: 'The backbone of every office? Admins who remember birthdays and budgets. At Mintex Staffing, we find detail-oriented legends who make chaos look organized.',
+        subtitle: '(Finding the Legends Who Make Chaos Look Organized)',
+        description: 'The true backbone of every office? Admins who remember the birthdays, the budgets, and where the printer ink is hidden. We find the detail-oriented wizards who keep your daily operations flawless.',
         roles: [
             'Receptionist',
             'Data Entry Clerk',
@@ -140,8 +144,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Sales and Marketing',
         title: 'Sales & Marketing Recruitment Solutions That Actually Sell',
         bg: Sales,
-        subtitle: '(Without the Sleaze)',
-        description: 'At Mintex Staffing, we connect you with salespeople who close deals, not doors and marketers who make noise the right way.',
+        subtitle: '(All the ROI, None of the Sleaze)',
+        description: 'At Mintex Staffing, we connect you with revenue-driven salespeople who close deals (not doors) and creative marketers who make your brand make noise—the right way.',
         roles: [
             'SDR / BDR',
             'Inside Sales Rep',
@@ -160,8 +164,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Creative and Design',
         title: 'Creative & Design Recruitment Solutions That Look Too Good to Ignore',
         bg: Creative,
-        subtitle: '(and Fix What You ‘Turned Off and On’ Twice)',
-        description: 'At Mintex Staffing, we connect you with the tech geniuses who make your systems run smoother than your morning coffee. Contract, temp-to-perm, or direct hire — we bring you people who speak fluent code and calm chaos.',
+        subtitle: '(Making Your Brand Look Like a Million Bucks on a Realistic Budget)',
+        description: 'At Mintex Staffing, we find the visual visionaries, pixel perfectionists, and wordsmiths who take your rough ideas and turn them into show-stopping reality. No generic clip-art here.',
         roles: [
             'Graphic Designer',
             'Content Creator',
@@ -181,7 +185,7 @@ export const SECTORS: Sector[] = [
         title: 'Transportation & Logistics Recruitment Solutions That Deliver',
         bg: Transport,
         subtitle: '(Literally)',
-        description: 'At Mintex Staffing, we move fast just like your shipments. From warehouse to delivery, we’ve got professionals who know how to keep things on track and on time.',
+        description: 'At Mintex Staffing, we move fast; just like your shipments. From warehouse wizards to supply chain maestros, we source professionals who know exactly how to keep your operations on track and on time.',
         roles: [
             'Warehouse Associate',
             'Forklift Operator',
@@ -200,8 +204,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Education',
         title: 'Education Recruitment Solutions That Make the Grade',
         bg: Education,
-        subtitle: '(and Fix What You ‘Turned Off and On’ Twice)',
-        description: 'At Mintex Staffing, we connect schools with teachers and leaders who spark curiosity (and survive parent-teacher meetings).',
+        subtitle: '(Sourcing Educators Who Can Survive Parent-Teacher Conferences)',
+        description: 'At Mintex Staffing, we connect schools with passionate teachers and academic leaders who spark curiosity, command a classroom, and inspire the next generation without losing their cool.',
         roles: [
             'Teaching Assistant',
             'Primary Teacher',
@@ -222,7 +226,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Legal',
         title: 'Legal Recruitment Solutions That Stand Their Ground',
         bg: Legal,
-        description: 'At Mintex Staffing, we connect firms with legal professionals who know their case law and how to keep it classy in court.',
+        subtitle: '(Because “I Saw It on a TV Show” Isn’t a Strong Defense)',
+        description: 'At Mintex Staffing, we connect firms and corporate legal departments with sharp professionals who know their case law, nail the paperwork, and keep it classy in and out of the courtroom.',
         roles: [
             'Legal Clerk',
             'Paralegal',
@@ -240,7 +245,8 @@ export const SECTORS: Sector[] = [
         listTitle: 'Hospitality',
         title: 'Hospitality Recruitment Solutions That Make Guests Feel Like Royalty',
         bg: Hospitality,
-        description: 'At Mintex Staffing, we help you find the people who serve smiles with every plate, pour, or pillow fluff.',
+        subtitle: '(Serving Smiles with Every Plate, Pour, or Pillow Fluff)',
+        description: 'At Mintex Staffing, we help you find the front-of-house stars and culinary experts who turn a standard reservation into an unforgettable experience. Because good service is never an accident.',
         roles: [
             'Server',
             'Host/Hostess',

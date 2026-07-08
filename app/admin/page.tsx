@@ -8,10 +8,10 @@ type MediaItem = { id: string; src: string; alt: string; url: string };
 type InsightsData = { images: MediaItem[]; reels: MediaItem[] };
 
 const STORAGE_KEY = "mintex_admin_pw";
-const TABS = ["jobs", "clients", "media", "impact", "history", "messages"] as const;
+const TABS = ["jobs", "clients", "media", "hero", "impact", "history", "messages"] as const;
 type Tab = typeof TABS[number];
 const TAB_LABELS: Record<Tab, string> = {
-  jobs: "Jobs", clients: "Clients", media: "Insights Media",
+  jobs: "Jobs", clients: "Clients", media: "Insights Media", hero: "Hero Section",
   impact: "Our Impact Stats", history: "History Images", messages: "Messages",
 };
 
@@ -98,6 +98,7 @@ export default function AdminInsightsPage() {
         {activeTab === "jobs"     && <JobsTab password={activePassword} />}
         {activeTab === "clients"  && <ClientsTab password={activePassword} />}
         {activeTab === "media"    && <MediaTab password={activePassword} />}
+        {activeTab === "hero"     && <HeroTab password={activePassword} />}
         {activeTab === "impact"   && <ImpactTab password={activePassword} />}
         {activeTab === "history"  && <HistoryImagesTab password={activePassword} />}
         {activeTab === "messages" && <MessagesTab password={activePassword} />}
@@ -1943,6 +1944,142 @@ function RetentionEditor({ data, saving, saved, onSave }: { data: StatisticsData
         <div><label className="block text-sm text-gray-400 mb-1">Candidate Retention (Years)</label><input type="number" step="0.1" value={candidateYears} onChange={e => setCandidateYears(Number(e.target.value))} className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-700 focus:border-orange-500 focus:outline-none" /></div>
       </div>
       <SaveBtn section="retention" saving={saving} saved={saved} />
+    </form>
+  ));
+}
+
+// ─── Hero Section tab ──────────────────────────────────────────────────────────
+type HeroStat = { id: string; value: string; label: string; icon_key: string };
+type HeroJob = { id: string; job_title: string; location: string; label: string };
+type HeroProfile = { id: string; name: string; role: string; sub: string; initial: string; image_url: string | null };
+type HeroCardsData = { stats: HeroStat[]; jobs: HeroJob[]; profiles: HeroProfile[] };
+
+const ICON_OPTIONS = [
+  { key: "chart", label: "Chart (yellow)" },
+  { key: "users", label: "Users (green)" },
+  { key: "building", label: "Building (blue)" },
+];
+
+function HeroTab({ password }: { password: string }) {
+  const [data, setData] = useState<HeroCardsData | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [saved, setSaved]   = useState<string | null>(null);
+
+  const fetchData = () => fetch("/api/hero-cards").then(r => r.json()).then(setData);
+  useEffect(() => { fetchData(); }, []);
+
+  const save = async (section: string, updates: Partial<HeroCardsData>) => {
+    setSaving(section);
+    const res = await fetch("/api/hero-cards", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, ...updates }) });
+    const json = await res.json();
+    if (json.success) { setData(json.data); setSaved(section); setTimeout(() => setSaved(null), 2000); }
+    setSaving(null);
+  };
+
+  if (!data) return <p className="text-gray-400">Loading...</p>;
+  return (
+    <div className="space-y-10">
+      <HeroStatsEditor data={data} saving={saving} saved={saved} onSave={save} />
+      <HeroJobsEditor data={data} saving={saving} saved={saved} onSave={save} />
+      <HeroProfilesEditor data={data} password={password} onProfilesChanged={fetchData} />
+    </div>
+  );
+}
+
+function HeroStatsEditor({ data, saving, saved, onSave }: { data: HeroCardsData; saving: string | null; saved: string | null; onSave: (s: string, u: Partial<HeroCardsData>) => void }) {
+  const [stats, setStats] = useState<HeroStat[]>(data.stats);
+  return sectionBox("Hero Stats Card (top-right, rotates through 3)", (
+    <form onSubmit={e => { e.preventDefault(); onSave("herostats", { stats }); }}>
+      <div className="space-y-3 mb-5">
+        {stats.map((s, i) => (
+          <div key={s.id} className="grid grid-cols-12 gap-3 items-center">
+            <span className="col-span-1 text-xs text-gray-500 text-center">#{i+1}</span>
+            <div className="col-span-3"><input value={s.value} onChange={e => setStats(p => p.map((x,j) => j===i?{...x,value:e.target.value}:x))} placeholder="Value (e.g. 150+)" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-4"><input value={s.label} onChange={e => setStats(p => p.map((x,j) => j===i?{...x,label:e.target.value}:x))} placeholder="Label" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-4">
+              <select value={s.icon_key} onChange={e => setStats(p => p.map((x,j) => j===i?{...x,icon_key:e.target.value}:x))} className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none">
+                {ICON_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+        ))}
+      </div>
+      <SaveBtn section="herostats" saving={saving} saved={saved} />
+    </form>
+  ));
+}
+
+function HeroJobsEditor({ data, saving, saved, onSave }: { data: HeroCardsData; saving: string | null; saved: string | null; onSave: (s: string, u: Partial<HeroCardsData>) => void }) {
+  const [jobs, setJobs] = useState<HeroJob[]>(data.jobs);
+  return sectionBox("Hero Job Openings Card (left, rotates through 3)", (
+    <form onSubmit={e => { e.preventDefault(); onSave("herojobs", { jobs }); }}>
+      <div className="space-y-3 mb-5">
+        {jobs.map((j, i) => (
+          <div key={j.id} className="grid grid-cols-12 gap-3 items-center">
+            <span className="col-span-1 text-xs text-gray-500 text-center">#{i+1}</span>
+            <div className="col-span-3"><input value={j.label} onChange={e => setJobs(p => p.map((x,k) => k===i?{...x,label:e.target.value}:x))} placeholder="Badge (e.g. We are Hiring)" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-4"><input value={j.job_title} onChange={e => setJobs(p => p.map((x,k) => k===i?{...x,job_title:e.target.value}:x))} placeholder="Job Title" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-4"><input value={j.location} onChange={e => setJobs(p => p.map((x,k) => k===i?{...x,location:e.target.value}:x))} placeholder="Location" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+          </div>
+        ))}
+      </div>
+      <SaveBtn section="herojobs" saving={saving} saved={saved} />
+    </form>
+  ));
+}
+
+function HeroProfilesEditor({ data, password, onProfilesChanged }: { data: HeroCardsData; password: string; onProfilesChanged: () => void }) {
+  const [profiles, setProfiles] = useState<HeroProfile[]>(data.profiles);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => { setProfiles(data.profiles); }, [data.profiles]);
+
+  const saveText = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/hero-cards", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, profiles }) });
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+    setSaving(false);
+  };
+
+  const handleUpload = async (id: string) => {
+    const file = fileRefs.current[id]?.files?.[0];
+    if (!file) return;
+    setUploading(id);
+    const fd = new FormData(); fd.append("file", file); fd.append("id", id); fd.append("password", password);
+    const res = await fetch("/api/hero-cards", { method: "POST", body: fd });
+    if (fileRefs.current[id]) fileRefs.current[id]!.value = "";
+    if (res.ok) onProfilesChanged();
+    setUploading(null);
+  };
+
+  return sectionBox("Hero Team Profile Card (bottom-right, rotates through 3)", (
+    <form onSubmit={saveText}>
+      <div className="space-y-4 mb-5">
+        {profiles.map((p, i) => (
+          <div key={p.id} className="grid grid-cols-12 gap-3 items-center">
+            <span className="col-span-1 text-xs text-gray-500 text-center">#{i+1}</span>
+            <div className="col-span-2 flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
+                {p.image_url ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-xs text-gray-500">No photo</span>}
+              </div>
+              <input ref={el => { fileRefs.current[p.id] = el; }} type="file" accept="image/*" onChange={() => handleUpload(p.id)} className="text-[11px] text-gray-400 w-full file:mr-1 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-orange-700 file:text-white file:cursor-pointer file:text-[11px]" />
+              {uploading === p.id && <span className="text-[11px] text-orange-400">Uploading…</span>}
+            </div>
+            <div className="col-span-2"><input value={p.name} onChange={e => setProfiles(pr => pr.map((x,j) => j===i?{...x,name:e.target.value}:x))} placeholder="Name" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-3"><input value={p.role} onChange={e => setProfiles(pr => pr.map((x,j) => j===i?{...x,role:e.target.value}:x))} placeholder="Role" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-3"><input value={p.sub} onChange={e => setProfiles(pr => pr.map((x,j) => j===i?{...x,sub:e.target.value}:x))} placeholder="Skills (e.g. MERN | AWS)" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none" /></div>
+            <div className="col-span-1"><input value={p.initial} maxLength={1} onChange={e => setProfiles(pr => pr.map((x,j) => j===i?{...x,initial:e.target.value.toUpperCase()}:x))} placeholder="R" className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm text-center focus:border-orange-500 focus:outline-none" /></div>
+          </div>
+        ))}
+      </div>
+      <button type="submit" disabled={saving}
+        className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${saved ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-500 text-white"}`}>
+        {saving ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
+      </button>
     </form>
   ));
 }
