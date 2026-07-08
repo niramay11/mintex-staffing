@@ -25,11 +25,11 @@ export default function Navbar() {
       href: "/about-us"
     },
     {
-      label: "Clients",
+      label: "Hire a Talent",
       href: "/clients"
     },
     {
-      label: "Candidates",
+      label: "Get Hired",
       href: "/candidates"
     },
     {

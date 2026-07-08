@@ -19,7 +19,7 @@ const Hero = () => {
                     transition={{ delay: 0.1 }}
                     className="text-gray-300 text-lg md:text-3xl font-light tracking-[0.3em] uppercase"
                 >
-                    CLIENTS
+                    CANDIDATES
                 </motion.span>
             </motion.div>
 
