@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { FaLinkedinIn, FaFacebookF, FaTwitter } from "react-icons/fa";
 import Mintex from "../assets/logo_orange.svg";
 import Link from "next/link";
 import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useSocialLinks } from "../hooks/useSocialLinks";
+import { getSocialIcon } from "../utils/socialIcons";
 
 if (typeof window !== "undefined") {
     gsap.registerPlugin(ScrollTrigger);
@@ -29,6 +30,7 @@ const MINTEX_LETTERS = ["M", "I", "N", "T", "E", "X"];
 
 export default function Footer() {
     const currentYear = new Date().getFullYear();
+    const socialLinks = useSocialLinks();
     const sectionRef = useRef<HTMLDivElement>(null);
     const mintexWrapRef = useRef<HTMLDivElement>(null);
     const lettersRef = useRef<(HTMLSpanElement | null)[]>([]);
@@ -160,9 +162,10 @@ export default function Footer() {
                         <div className="mt-8">
                             <div className="flex flex-col sm:flex-row justify-between items-center pt-5 border-t border-white/10 text-white/50 text-sm gap-4">
                                 <div className="flex gap-4 order-2 sm:order-1">
-                                    <SocialIcon icon={<FaLinkedinIn />} href="https://linkedin.com" />
-                                    <SocialIcon icon={<FaFacebookF />} href="https://facebook.com" />
-                                    <SocialIcon icon={<FaTwitter />} href="https://twitter.com" />
+                                    {socialLinks.map((link) => {
+                                        const Icon = getSocialIcon(link.label);
+                                        return <SocialIcon key={link.id} icon={<Icon />} href={link.url} />;
+                                    })}
                                 </div>
                                 <p className="order-1 sm:order-2">
                                     &copy; {currentYear} Mintex. All rights reserved

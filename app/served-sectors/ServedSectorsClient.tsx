@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SECTORS } from '@/utils/Constan';
 
 // How long to block new snaps after one fires.
@@ -20,6 +21,21 @@ const ServedSectorsClient = () => {
     const accumRef      = useRef(0);        // trackpad delta accumulator
     const lastDirRef    = useRef(0);        // last scroll direction (resets accum on flip)
     const touchYRef     = useRef(0);
+    const searchParams  = useSearchParams();
+
+    // ── Deep link: land directly on the requested sector's card ───────────────
+    useEffect(() => {
+        const sectorId = searchParams.get('sector');
+        if (!sectorId) return;
+        const index = SECTORS.findIndex(s => s.id === sectorId);
+        if (index < 0) return;
+        const el = cardsRef.current;
+        if (!el) return;
+        activeRef.current = index;
+        const sectionTop = el.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: sectionTop + index * window.innerHeight, behavior: 'instant' as ScrollBehavior });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     // ── Snap to a specific card index ────────────────────────────────────────
     const snapTo = (index: number) => {
@@ -148,14 +164,14 @@ const ServedSectorsClient = () => {
             </div>
 
             {/* ── Stacking cards container ── */}
-            <div ref={cardsRef} style={{ height: `${SECTORS.length * 100}vh` }}>
+            <div ref={cardsRef} style={{ height: `${SECTORS.length * 100}dvh` }}>
                 {SECTORS.map((sector, index) => (
                     <div
                         key={sector.id}
                         style={{
                             position:        'sticky',
                             top:             0,
-                            height:          '100vh',
+                            height:          '100dvh',
                             zIndex:          index + 1,
                             backgroundColor: `hsl(0,0%,${3 + index * 0.7}%)`,
                             overflow:        'hidden',

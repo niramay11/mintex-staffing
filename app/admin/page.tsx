@@ -8,10 +8,10 @@ type MediaItem = { id: string; src: string; alt: string; url: string };
 type InsightsData = { images: MediaItem[]; reels: MediaItem[] };
 
 const STORAGE_KEY = "mintex_admin_pw";
-const TABS = ["jobs", "clients", "media", "hero", "impact", "history", "messages"] as const;
+const TABS = ["jobs", "clients", "media", "hero", "social", "impact", "history", "messages"] as const;
 type Tab = typeof TABS[number];
 const TAB_LABELS: Record<Tab, string> = {
-  jobs: "Jobs", clients: "Clients", media: "Insights Media", hero: "Hero Section",
+  jobs: "Jobs", clients: "Clients", media: "Insights Media", hero: "Hero Section", social: "Social Links",
   impact: "Our Impact Stats", history: "History Images", messages: "Messages",
 };
 
@@ -99,6 +99,7 @@ export default function AdminInsightsPage() {
         {activeTab === "clients"  && <ClientsTab password={activePassword} />}
         {activeTab === "media"    && <MediaTab password={activePassword} />}
         {activeTab === "hero"     && <HeroTab password={activePassword} />}
+        {activeTab === "social"   && <SocialTab password={activePassword} />}
         {activeTab === "impact"   && <ImpactTab password={activePassword} />}
         {activeTab === "history"  && <HistoryImagesTab password={activePassword} />}
         {activeTab === "messages" && <MessagesTab password={activePassword} />}
@@ -2080,6 +2081,78 @@ function HeroProfilesEditor({ data, password, onProfilesChanged }: { data: HeroC
         className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${saved ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-500 text-white"}`}>
         {saving ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
       </button>
+    </form>
+  ));
+}
+
+// ─── Social Links tab ──────────────────────────────────────────────────────────
+// Fully dynamic: add any platform, rename it, change its URL, or remove it —
+// not limited to a fixed set. Unrecognized platform names on the public site
+// fall back to a generic icon (see app/utils/socialIcons.tsx).
+type SocialLink = { id: string; label: string; url: string; sort_order?: number };
+
+function SocialTab({ password }: { password: string }) {
+  const [links, setLinks] = useState<SocialLink[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const fetchData = () => fetch("/api/social-links").then(r => r.json()).then(data => { setLinks(data); setLoaded(true); });
+  useEffect(() => { fetchData(); }, []);
+
+  const addLink = () => {
+    setLinks(prev => [...prev, { id: `link_${Date.now()}`, label: "", url: "" }]);
+  };
+
+  const removeLink = (i: number) => {
+    setLinks(prev => prev.filter((_, j) => j !== i));
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/social-links", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, links }),
+    });
+    const json = await res.json();
+    if (json.success) { setLinks(json.data); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+    setSaving(false);
+  };
+
+  if (!loaded) return <p className="text-gray-400">Loading...</p>;
+
+  return sectionBox("Social Media Links (Navbar, Footer, Insights section)", (
+    <form onSubmit={save}>
+      <div className="space-y-3 mb-4">
+        {links.map((link, i) => (
+          <div key={link.id} className="grid grid-cols-12 gap-3 items-center">
+            <div className="col-span-3">
+              <input
+                value={link.label}
+                onChange={e => setLinks(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                placeholder="Platform (e.g. Instagram)"
+                className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+            <div className="col-span-8">
+              <input
+                value={link.url}
+                onChange={e => setLinks(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
+                placeholder="https://..."
+                className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 text-sm focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+            <div className="col-span-1 flex justify-center">
+              <button type="button" onClick={() => removeLink(i)} className="w-7 h-7 rounded-full bg-red-900/50 hover:bg-red-600 text-red-400 hover:text-white flex items-center justify-center text-sm transition-colors">&times;</button>
+            </div>
+          </div>
+        ))}
+        {links.length === 0 && <p className="text-sm text-gray-500">No social links yet — add one below.</p>}
+      </div>
+      <button type="button" onClick={addLink} className="text-sm text-orange-400 hover:text-orange-300 mb-5 transition-colors">+ Add Social Link</button>
+      <div><SaveBtn section="social" saving={saving ? "social" : null} saved={saved ? "social" : null} /></div>
     </form>
   ));
 }

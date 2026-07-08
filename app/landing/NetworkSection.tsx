@@ -6,6 +6,11 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRouter } from "next/navigation";
 import * as THREE from "three";
+import {
+  FaLaptopCode, FaHeartbeat, FaCogs, FaCalculator, FaIndustry, FaUserTie,
+  FaBullhorn, FaPalette, FaTruck, FaGraduationCap, FaBalanceScale, FaConciergeBell,
+} from "react-icons/fa";
+import { FiArrowRight } from "react-icons/fi";
 
 if (typeof window !== 'undefined') {
     gsap.registerPlugin(ScrollTrigger);
@@ -13,25 +18,27 @@ if (typeof window !== 'undefined') {
 
 const Globe = dynamic(() => import("react-globe.gl"), { ssr: false });
 
+// sectorId matches the `id` field in utils/Constan.ts SECTORS — used to deep-link
+// each industry click straight to its own card on /served-sectors.
 const services = [
-  { label: "Information Technology", lat: 47.6, lng: -122.3, city: "Seattle" },
-  { label: "Healthcare", lat: 46.8, lng: -71.2, city: "Quebec" },
-  { label: "Engineering", lat: 37.8, lng: -122.4, city: "San Francisco" },
-  { label: "Finance & Accounting", lat: 38.9, lng: -77.0, city: "Washington DC" },
-  { label: "Industrial & Manufacturing", lat: 33.7, lng: -84.4, city: "Atlanta" },
-  { label: "Administrative & Clerical", lat: 39.7, lng: -105.0, city: "Denver" },
-  { label: "Sales & Marketing", lat: 45.0, lng: -93.3, city: "Minneapolis" },
-  { label: "Creative & Design", lat: 33.4, lng: -112.0, city: "Phoenix" },
-  { label: "Transportation & Logistics", lat: 29.8, lng: -95.4, city: "Houston" },
-  { label: "Education", lat: 48.5, lng: -100.5, city: "North Dakota" },
-  { label: "Legal", lat: 41.9, lng: -87.6, city: "Chicago" },
-  { label: "Hospitality", lat: 25.8, lng: -80.2, city: "Miami" },
+  { label: "Information Technology", lat: 47.6, lng: -122.3, city: "Seattle", sectorId: "it", icon: FaLaptopCode },
+  { label: "Healthcare", lat: 46.8, lng: -71.2, city: "Quebec", sectorId: "healthcare", icon: FaHeartbeat },
+  { label: "Engineering", lat: 37.8, lng: -122.4, city: "San Francisco", sectorId: "engineering", icon: FaCogs },
+  { label: "Finance & Accounting", lat: 38.9, lng: -77.0, city: "Washington DC", sectorId: "finance", icon: FaCalculator },
+  { label: "Industrial & Manufacturing", lat: 33.7, lng: -84.4, city: "Atlanta", sectorId: "industrial", icon: FaIndustry },
+  { label: "Administrative & Clerical", lat: 39.7, lng: -105.0, city: "Denver", sectorId: "admin", icon: FaUserTie },
+  { label: "Sales & Marketing", lat: 45.0, lng: -93.3, city: "Minneapolis", sectorId: "sales", icon: FaBullhorn },
+  { label: "Creative & Design", lat: 33.4, lng: -112.0, city: "Phoenix", sectorId: "creative", icon: FaPalette },
+  { label: "Transportation & Logistics", lat: 29.8, lng: -95.4, city: "Houston", sectorId: "transport", icon: FaTruck },
+  { label: "Education", lat: 48.5, lng: -100.5, city: "North Dakota", sectorId: "education", icon: FaGraduationCap },
+  { label: "Legal", lat: 41.9, lng: -87.6, city: "Chicago", sectorId: "legal", icon: FaBalanceScale },
+  { label: "Hospitality", lat: 25.8, lng: -80.2, city: "Miami", sectorId: "hospitality", icon: FaConciergeBell },
 ];
 
 const HUB = { lat: 39.0997, lng: -94.5786 };
 const CHINA_CENTER = { lat: 39.9042, lng: 116.4074 };
 const USA_CENTER = { lat: 39.8283, lng: -98.5795 };
-const MOBILE_BREAKPOINT = 1024; // below 1024px use services grid — globe GSAP pin works only on desktop
+const MOBILE_BREAKPOINT = 1024; // narrow-screen star count tuning only — the globe/list switch uses pointer type, not width
 
 const correctCameraUp = (globe: any, lat: number, lng: number) => {
   const camera = globe?.camera?.();
@@ -240,12 +247,18 @@ export default function NetworkSection() {
     };
   }, []);
 
-  // ── Mobile breakpoint ────────────────────────────────────────────────────
+  // ── Device type ──────────────────────────────────────────────────────────
+  // Globe is for desktop/laptop (mouse/trackpad = fine pointer), at ANY screen
+  // size or window width. List view is for phones/tablets (touch = coarse
+  // pointer), at ANY screen size — a wide tablet in landscape still gets the
+  // list, and a small/resized desktop window still gets the globe.
   useEffect(() => {
-    const check = () => setIsMobile(typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT);
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const check = () => setIsMobile(mq.matches);
     check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
   }, []);
 
   // ── ScrollTrigger refresh ────────────────────────────────────────────────
@@ -576,6 +589,7 @@ export default function NetworkSection() {
           animProg.value = 0; scrollProgressRef.current = 0;
           if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
           gsap.killTweensOf(animProg);
+          globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
           applyProgress(0); lockControls();
         },
         onLeave: () => { sectionActive = false; },
@@ -592,6 +606,7 @@ export default function NetworkSection() {
           sectionActive = false; currentStep = 0; readyToExit = false;
           animProg.value = 0; scrollProgressRef.current = 0;
           gsap.killTweensOf(animProg);
+          globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
           if (labelsVisibleRef.current) { labelsVisibleRef.current = false; setLabelsVisible(false); }
           applyProgress(0);
         },
@@ -607,6 +622,8 @@ export default function NetworkSection() {
         if (pos >= st.start && pos <= st.end) {
           sectionActive = true;
           lastStepMs = 0;
+          gsap.killTweensOf(animProg);
+          globeAnimatingRef.current = false; // fresh (re-)activation — any prior tween is no longer relevant
           const triggerProgress = (pos - st.start) / (st.end - st.start);
           if (triggerProgress > 0.7) {
             currentStep = TOTAL_STEPS; animProg.value = 1; scrollProgressRef.current = 1;
@@ -636,6 +653,7 @@ export default function NetworkSection() {
         if (!readyToExit) return;
         sectionActive = false;
         gsap.killTweensOf(animProg);
+        globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
         window.scrollTo({ top: (st?.end ?? 0) + 50, behavior: "instant" as ScrollBehavior });
         return;
       }
@@ -643,6 +661,7 @@ export default function NetworkSection() {
         if (now - lastStepMs < BACK_EXIT_COOLDOWN) return;
         sectionActive = false;
         gsap.killTweensOf(animProg);
+        globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
         window.scrollTo({ top: Math.max(0, (st?.start ?? 0) - 50), behavior: "instant" as ScrollBehavior });
         return;
       }
@@ -667,12 +686,14 @@ export default function NetworkSection() {
       if (next > TOTAL_STEPS) {
         if (!readyToExit) return;
         sectionActive = false; gsap.killTweensOf(animProg);
+        globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
         window.scrollTo({ top: (st?.end ?? 0) + 50, behavior: "instant" as ScrollBehavior });
         return;
       }
       if (next < 0) {
         if (now - lastStepMs < BACK_EXIT_COOLDOWN) return;
         sectionActive = false; gsap.killTweensOf(animProg);
+        globeAnimatingRef.current = false; // killTweensOf skips onComplete — must reset manually
         window.scrollTo({ top: Math.max(0, (st?.start ?? 0) - 50), behavior: "instant" as ScrollBehavior });
         return;
       }
@@ -705,7 +726,7 @@ export default function NetworkSection() {
   // Memoized so Globe never gets new prop references during animation re-renders,
   // preventing expensive Three.js re-processing at 60fps.
   const globePoints = useMemo(() => services.map((s, i) => ({
-    lat: s.lat, lng: s.lng, label: s.label,
+    lat: s.lat, lng: s.lng, label: s.label, sectorId: s.sectorId,
     size:  hover === i ? pointSizeHover : pointSize,
     color: hover === i ? "#ffffff" : "rgba(0,230,255,0.9)",
   })), [hover, pointSize, pointSizeHover]);
@@ -728,59 +749,73 @@ export default function NetworkSection() {
   // This removes the overlap glitch that happened when switching labelsData mid-transition.
   const labelsData = useMemo(() => [], []);
 
-  const handleGlobeClick = () => router.push("/served-sectors");
+  const goToSector = (sectorId: string) => router.push(`/served-sectors?sector=${sectorId}`);
+  const handlePointClick = (point: any) => {
+    if (point?.sectorId) goToSector(point.sectorId);
+  };
 
   // ── Mobile: animated services grid (replaces WebGL globe entirely) ─────
   if (isMobile) {
     return (
-      <section className="w-full bg-black py-20 px-5">
+      <section className="w-full bg-black py-20 px-5 relative overflow-hidden">
+        {/* Ambient glows — same depth treatment as the desktop globe view */}
+        <div className="absolute top-10 left-[8%] w-64 h-64 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-10 right-[8%] w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+
         {/* Heading */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-12 relative z-10">
           <p className="text-xs font-mono tracking-[0.25em] uppercase text-cyan-400 mb-2">
             Our Reach
           </p>
           <h2 className="text-3xl font-bold text-white font-bebas tracking-wide">
             Industries We Serve
           </h2>
-          <div className="mx-auto mt-3 w-12 h-[2px] bg-cyan-400/50 rounded-full" />
+          <p className="text-sm text-gray-400 mt-3 max-w-xs mx-auto leading-relaxed">
+            Specialized staffing across every sector — tap an industry to explore roles
+          </p>
+          <div className="mx-auto mt-4 w-12 h-[2px] bg-cyan-400/50 rounded-full" />
         </div>
 
-        {/* 2-column pill grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {services.map((s, i) => (
-            <div
-              key={i}
-              onClick={() => router.push('/served-sectors')}
-              style={{
-                animationDelay: `${i * 0.07}s`,
-                animationFillMode: 'both',
-              }}
-              className="animate-fadeInUp cursor-pointer flex items-center gap-2.5 px-3 py-3 rounded-2xl border border-cyan-500/25 bg-white/5 active:scale-95 transition-transform"
-            >
-              <span
+        {/* Icon-card grid — scales columns up on wider tablets */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10 max-w-5xl mx-auto">
+          {services.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <div
+                key={i}
+                onClick={() => goToSector(s.sectorId)}
                 style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  background: '#00E6FF',
-                  boxShadow: '0 0 8px rgba(0,230,255,1)',
-                  flexShrink: 0,
+                  animationDelay: `${i * 0.06}s`,
+                  animationFillMode: 'both',
                 }}
-              />
-              <span className="text-[11px] font-semibold text-cyan-100 leading-tight">
-                {s.label}
-              </span>
-            </div>
-          ))}
+                className="animate-fadeInUp group relative cursor-pointer flex flex-col gap-3 p-4 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm active:scale-95 transition-all duration-300 hover:border-cyan-400/40 hover:bg-white/[0.06] overflow-hidden"
+              >
+                {/* corner glow on hover/active */}
+                <div className="absolute -top-6 -right-6 w-16 h-16 bg-cyan-400/0 group-active:bg-cyan-400/20 rounded-full blur-2xl transition-all duration-300" />
+
+                <div className="relative z-10 w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-300 text-base">
+                  <Icon />
+                </div>
+                <span className="relative z-10 text-[13px] font-semibold text-white leading-snug">
+                  {s.label}
+                </span>
+                <span className="relative z-10 flex items-center gap-1 text-[10px] text-cyan-400/70 font-medium uppercase tracking-wider">
+                  Explore <FiArrowRight className="text-[10px]" />
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* CTA */}
-        <div className="flex justify-center mt-10">
+        <div className="flex justify-center mt-12 relative z-10">
           <button
             onClick={() => router.push('/served-sectors')}
-            className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-cyan-300 border border-cyan-500/30 bg-cyan-500/5 active:scale-95 transition-transform"
+            className="group flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold uppercase tracking-widest text-black active:scale-95 transition-transform"
+            style={{ background: "linear-gradient(135deg, #57EEFF, #0ea5e9)" }}
           >
             Explore All Sectors
+            <FiArrowRight className="transition-transform group-active:translate-x-1" />
           </button>
         </div>
       </section>
@@ -867,6 +902,7 @@ export default function NetworkSection() {
                     setHover(null);
                   }
                 }}
+                onPointClick={handlePointClick}
               />
             </div>
           </div>
@@ -910,7 +946,7 @@ export default function NetworkSection() {
           return (
             <div
               key={lr.index}
-              onClick={() => router.push("/served-sectors")}
+              onClick={() => goToSector(services[lr.index].sectorId)}
               style={{
                 position: "absolute",
                 left: lr.anchorX,

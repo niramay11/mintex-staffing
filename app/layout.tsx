@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import SiteShell from "./components/SiteShell";
 import ScrollToTop from "./components/ScrollToTop";
@@ -45,6 +45,12 @@ const gilroy = localFont({
 export const metadata: Metadata = {
   title: "Mintex Staffing",
   description: "Staffing and recruitment solutions for modern businesses.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

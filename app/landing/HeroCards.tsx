@@ -168,7 +168,8 @@ const CardBackground = () => (
   </div>
 );
 
-const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDesktop: boolean }) => {
+const FadingCard = ({ config, isDesktop, standalone = false }: { config: RotatingCardConfig; isDesktop: boolean; standalone?: boolean }) => {
+  const isAbsolute = isDesktop && !standalone;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
 
@@ -193,8 +194,8 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
 
   return (
     <motion.div
-      className={`w-[150px] h-[170px] sm:w-[180px] sm:h-[200px] ${isDesktop ? "absolute" : "relative"}`}
-      style={isDesktop ? config.desktopPosition : {}}
+      className={`w-[150px] h-[170px] sm:w-[180px] sm:h-[200px] ${isAbsolute ? "absolute" : "relative"}`}
+      style={isAbsolute ? config.desktopPosition : {}}
       initial={{ opacity: 0, y: 80 }}
       animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 80 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
@@ -211,14 +212,14 @@ const FadingCard = ({ config, isDesktop }: { config: RotatingCardConfig; isDeskt
         <div className="w-full h-full relative">
           <CardBackground />
           <div className="relative z-10 w-full h-full">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               <motion.div
                 key={currentIndex}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="w-full h-full"
+                className="absolute inset-0 w-full h-full"
               >
                 {renderContent(config.content[currentIndex])}
               </motion.div>
@@ -252,11 +253,30 @@ const HeroCards: React.FC = () => {
       .catch(() => {});
   }, []);
 
+  const [statCard, jobCard, profileCard] = heroCardsData;
+
   return (
     <div className={`w-full relative ${isDesktop ? "h-[600px]" : "h-auto py-8 sm:py-10 flex flex-row sm:flex-row flex-wrap gap-4 sm:gap-6 items-center justify-center"}`}>
-      {heroCardsData.map((card, i) => (
-        <FadingCard key={i} config={card} isDesktop={isDesktop} />
-      ))}
+      {isDesktop ? (
+        <>
+          {/* Job card — a bit lower and further right than center */}
+          <div className="absolute left-[18%] top-[58%] -translate-y-1/2">
+            <FadingCard config={jobCard} isDesktop={isDesktop} standalone />
+          </div>
+
+          {/* Stat + profile cards — fixed, consistent gap so spacing never depends on container height */}
+          <div className="absolute top-[110px] right-[5%] flex flex-col gap-24 items-end">
+            <FadingCard config={statCard} isDesktop={isDesktop} standalone />
+            <div className="mr-14">
+              <FadingCard config={profileCard} isDesktop={isDesktop} standalone />
+            </div>
+          </div>
+        </>
+      ) : (
+        heroCardsData.map((card, i) => (
+          <FadingCard key={i} config={card} isDesktop={isDesktop} />
+        ))
+      )}
     </div>
   );
 };

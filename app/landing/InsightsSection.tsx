@@ -1,9 +1,10 @@
 "use client";
 
-import { FaInstagram, FaFacebookF, FaLinkedinIn } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useSocialLinks } from "../hooks/useSocialLinks";
+import { getSocialIcon } from "../utils/socialIcons";
 
 type MediaItem = {
   id: string;
@@ -58,6 +59,7 @@ export default function InsightsSection() {
   const [showReels, setShowReels] = useState(false);
   const [images, setImages] = useState<MediaItem[]>([]);
   const [reels, setReels] = useState<MediaItem[]>([]);
+  const socialLinks = useSocialLinks();
 
   useEffect(() => {
     fetch("/api/insights")
@@ -132,9 +134,10 @@ export default function InsightsSection() {
 
           {/* Social Icons */}
           <motion.div className="flex gap-4 mt-10">
-            <SocialIcon icon={<FaInstagram />} delay={0.1} />
-            <SocialIcon icon={<FaFacebookF />} delay={0.2} />
-            <SocialIcon icon={<FaLinkedinIn />} delay={0.3} />
+            {socialLinks.map((link, i) => {
+              const Icon = getSocialIcon(link.label);
+              return <SocialIcon key={link.id} icon={<Icon />} delay={0.1 + i * 0.1} href={link.url} />;
+            })}
           </motion.div>
 
           {/* Toggle button */}
@@ -226,9 +229,12 @@ export default function InsightsSection() {
 /* ----------------------- */
 /* Helper Component */
 /* ----------------------- */
-function SocialIcon({ icon, delay = 0 }: { icon: React.ReactNode; delay?: number }) {
+function SocialIcon({ icon, delay = 0, href }: { icon: React.ReactNode; delay?: number; href: string }) {
   return (
-    <motion.div
+    <motion.a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -237,6 +243,6 @@ function SocialIcon({ icon, delay = 0 }: { icon: React.ReactNode; delay?: number
     >
       <div className="absolute inset-0 rounded-full bg-cyan-500/20 opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-300" />
       <div className="relative z-10">{icon}</div>
-    </motion.div>
+    </motion.a>
   );
 }

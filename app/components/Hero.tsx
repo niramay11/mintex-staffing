@@ -34,7 +34,7 @@ const Hero = () => {
   return (
     <motion.div
       className="bg-hero flex flex-col lg:flex-row w-full overflow-hidden"
-      style={{ minHeight: "100svh" }}
+      style={{ minHeight: "clamp(640px, 100svh, 900px)" }}
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
@@ -42,7 +42,7 @@ const Hero = () => {
     >
       {/* LEFT CONTENT */}
       <div
-        className="w-full lg:w-2/3 flex flex-col items-start justify-between px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
+        className="w-full lg:w-1/2 flex flex-col items-start justify-center px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
         style={{
           paddingTop:    "clamp(130px, 15vh, 200px)",
           paddingBottom: "clamp(32px, 5vh, 72px)",
@@ -92,9 +92,9 @@ const Hero = () => {
           </motion.div>
         </div>
 
-        {/* Bottom group: Candidates / Clients cards — anchored to bottom via justify-between on desktop */}
+        {/* Bottom group: Candidates / Clients cards */}
         <motion.div
-          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-8 lg:mt-0"
+          className="w-full flex flex-col sm:flex-row justify-start gap-4 md:gap-6 mt-10 sm:mt-12 lg:mt-14 xl:mt-16"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -167,7 +167,7 @@ const Hero = () => {
       </div>
 
       {/* RIGHT — Floating hero cards */}
-      <div className="w-full lg:w-1/3 xl:w-1/2 relative lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
+      <div className="w-full lg:w-1/2 relative lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
         <HeroCards />
       </div>
     </motion.div>

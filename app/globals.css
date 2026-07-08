@@ -50,6 +50,18 @@ body {
   background-size: cover;
 }
 
+/* Below lg (the same breakpoint where the hero stacks to a single column),
+   the section becomes much taller than it is wide, so background-size:cover
+   crops almost the entire photo down to a thin, ugly sliver. Drop the photo
+   there and use a matching dark gradient instead — desktop is untouched. */
+@media (max-width: 1023px) {
+  .bg-hero {
+    background-image: none;
+    background-color: #0a1f26;
+    background: linear-gradient(160deg, #0a1f26 0%, #0d2b35 55%, #081920 100%);
+  }
+}
+
 .pupil {
   @apply w-2 h-2 bg-black rounded-full transition-transform duration-200;
 }

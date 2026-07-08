@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import ServedSectorsClient from './ServedSectorsClient';
 
@@ -8,7 +8,11 @@ export const metadata: Metadata = {
 };
 
 const ServedSectorsPage = () => {
-    return <ServedSectorsClient />;
+    return (
+        <Suspense fallback={null}>
+            <ServedSectorsClient />
+        </Suspense>
+    );
 };
 
 export default ServedSectorsPage;

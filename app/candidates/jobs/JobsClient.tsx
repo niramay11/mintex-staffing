@@ -1196,7 +1196,7 @@ const JobsClient = ({ initialJobs }: { initialJobs?: Record<string, unknown>[] }
                     <motion.div
                         initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4">
+                        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4">
                         <div className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl"
                             style={{ background: 'rgba(4,8,22,0.97)', backdropFilter: 'blur(32px)', border: `1px solid ${C.coralBdr}`, boxShadow: `0 0 40px rgba(255,87,88,0.12), 0 20px 60px rgba(0,0,0,0.6)` }}>
                             <div className="flex items-center gap-3">

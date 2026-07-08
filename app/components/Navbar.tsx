@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import Container from "./Container";
-import { FaFacebookF, FaLinkedinIn, FaTwitter } from "react-icons/fa";
-import { RiInstagramFill } from "react-icons/ri";
 import { HiOutlineMenu, HiOutlineX } from "react-icons/hi";
 import Logo from "../../public/logo.svg";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSocialLinks } from "../hooks/useSocialLinks";
+import { getSocialIcon } from "../utils/socialIcons";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const socialLinks = useSocialLinks();
 
   if (pathname === "/candidates/jobs" || pathname === "/clients/portal") {
     return null;
@@ -107,15 +108,20 @@ export default function Navbar() {
               <div className="flex justify-end gap-4 items-center">
                 <p className="text-sm">+1 732-983-5723</p>
                 <ul className="flex gap-2 ">
-                  {[RiInstagramFill, FaFacebookF, FaLinkedinIn, FaTwitter].map((Icon, i) => (
-                    <motion.li
-                      whileHover={{ scale: 1.2, rotate: 5 }}
-                      key={i}
-                      className="w-6 h-6 bg-white rounded-full flex justify-center items-center cursor-pointer shadow-sm"
-                    >
-                      <Icon className="text-[#0762AF] text-xs" />
-                    </motion.li>
-                  ))}
+                  {socialLinks.map((link) => {
+                    const Icon = getSocialIcon(link.label);
+                    return (
+                      <motion.li
+                        whileHover={{ scale: 1.2, rotate: 5 }}
+                        key={link.id}
+                        className="w-6 h-6 bg-white rounded-full flex justify-center items-center shadow-sm"
+                      >
+                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="w-full h-full flex justify-center items-center cursor-pointer">
+                          <Icon className="text-[#0762AF] text-xs" />
+                        </a>
+                      </motion.li>
+                    );
+                  })}
                 </ul>
               </div>
             </Container>
