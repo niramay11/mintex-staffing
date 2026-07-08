@@ -50,14 +50,14 @@ const Hero = () => {
                 </motion.span>
             </motion.h1>
 
-            <div className="relative w-full max-w-6xl mx-auto min-h-[400px] h-auto md:h-[600px] flex items-end justify-center gap-8 md:gap-20">
+            <div className="relative w-full max-w-[1400px] mx-auto min-h-[400px] h-auto md:h-[600px] flex items-end justify-center gap-8 2xl:gap-16">
 
                 {/* Man on Chair - Drops from top then floats */}
                 <motion.div
                     initial={{ y: -400, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 2, ease: [0.25, 1, 0.5, 1], delay: 0.3 }}
-                    className="relative w-64 h-80 md:w-[450px] md:h-[550px] z-20"
+                    className="relative w-64 h-80 md:w-[450px] md:h-[550px] z-20 shrink-0"
                 >
                     <motion.div
                         animate={{ y: [0, -15, 0] }}
@@ -75,7 +75,7 @@ const Hero = () => {
                 </motion.div>
 
                 {/* Empty Chairs - Staggered Fade-in and Hover Effect */}
-                <div className="hidden md:flex gap-4 md:gap-8 pb-10">
+                <div className="hidden 2xl:flex gap-8 pb-10 shrink-0">
                     {[1, 2, 3].map((i) => (
                         <motion.div
                             key={i}
@@ -92,7 +92,7 @@ const Hero = () => {
                                 duration: 0.8,
                                 ease: "easeOut"
                             }}
-                            className="relative w-20 h-28 md:w-64 md:h-80 cursor-pointer"
+                            className="relative w-64 h-80 cursor-pointer shrink-0"
                         >
                             <Image
                                 src={ChairImg}

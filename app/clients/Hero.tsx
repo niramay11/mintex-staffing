@@ -19,7 +19,6 @@ const HeroSection = () => {
     const [visibleImageIndex, setVisibleImageIndex] = useState(0);
     const [isNavbarWhite, setIsNavbarWhite] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const [slideIndex, setSlideIndex] = useState(0);
 
     const imageRefs = [
         useRef<HTMLDivElement>(null),
@@ -28,8 +27,6 @@ const HeroSection = () => {
         useRef<HTMLDivElement>(null),
     ];
 
-    const images = [ClientImg, Client2Img, Client3Img, Client4Img];
-
     // Use slideshow for anything < 1280px — desktop flex layout needs 1280px+ to fit all 4 images
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 1280);
@@ -37,15 +34,6 @@ const HeroSection = () => {
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
     }, []);
-
-    // Mobile: auto-rotate slideshow every 1.5s
-    useEffect(() => {
-        if (!isMobile) return;
-        const timer = setInterval(() => {
-            setSlideIndex(p => (p + 1) % images.length);
-        }, 1500);
-        return () => clearInterval(timer);
-    }, [isMobile]);
 
     // Navbar scroll colour
     useEffect(() => {
@@ -76,7 +64,7 @@ const HeroSection = () => {
             });
         }, containerRef);
         return () => ctx.revert();
-    }, []);
+    }, [isMobile]);
 
     // GSAP fade each image in/out
     useEffect(() => {
@@ -100,7 +88,8 @@ const HeroSection = () => {
         <section ref={containerRef} className="relative overflow-x-hidden bg-black">
             <div
                 ref={stickyRef}
-                className="h-screen w-full flex flex-col items-center justify-center overflow-hidden pt-20 md:pt-32"
+                className={`w-full flex flex-col items-center justify-center overflow-hidden ${isMobile ? 'py-16 px-4' : 'h-screen pt-20 md:pt-32'
+                    }`}
             >
                 {/* CLIENTS label */}
                 <div
@@ -118,58 +107,23 @@ const HeroSection = () => {
                     </span>
                 </h1>
 
-                {/* ── MOBILE layout: CSS slideshow using slideIndex — auto-rotates every 1.5s ── */}
+                {/* ── MOBILE layout: single static image (sitting pose), no carousel/scroll ── */}
                 {isMobile && (
-                    <div style={{ position: 'relative', width: '100%', paddingBottom: '8px' }}>
-                        {/* Image stack — centered, responsive size */}
-                        <div style={{ position: 'relative', height: '340px' }}>
-                            {images.map((src, i) => (
-                                <div
-                                    key={i}
-                                    style={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: '50%',
-                                        transform: i === slideIndex
-                                            ? 'translate(-50%, -50%) scale(1)'
-                                            : 'translate(-50%, -50%) scale(0.92)',
-                                        width: 'min(280px, 62vw)',
-                                        height: 'min(380px, 82vw)',
-                                        opacity: i === slideIndex ? 1 : 0,
-                                        transition: 'opacity 0.4s ease, transform 0.4s ease',
-                                        pointerEvents: 'none',
-                                        filter: 'drop-shadow(0 0 24px rgba(34,211,238,0.5))',
-                                    }}
-                                >
-                                    <Image
-                                        src={src}
-                                        alt={`Client ${i + 1}`}
-                                        fill
-                                        className="object-contain"
-                                        priority={i === 0}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                        {/* Dot indicators */}
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '10px' }}>
-                            {images.map((_, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setSlideIndex(i)}
-                                    style={{
-                                        width: i === slideIndex ? '28px' : '8px',
-                                        height: '8px',
-                                        borderRadius: '4px',
-                                        background: i === slideIndex ? '#22d3ee' : 'rgba(255,255,255,0.25)',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s ease',
-                                        padding: 0,
-                                    }}
-                                />
-                            ))}
-                        </div>
+                    <div
+                        style={{
+                            position: 'relative',
+                            width: 'min(300px, 70vw)',
+                            height: 'min(360px, 78vw)',
+                            filter: 'drop-shadow(0 0 24px rgba(34,211,238,0.5))',
+                        }}
+                    >
+                        <Image
+                            src={Client4Img}
+                            alt="Client"
+                            fill
+                            className="object-contain"
+                            priority
+                        />
                     </div>
                 )}
 

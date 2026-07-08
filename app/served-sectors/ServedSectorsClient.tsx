@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SECTORS } from '@/utils/Constan';
 
@@ -13,8 +13,14 @@ const LOCK_MS = 700;
 // immediately — this threshold only applies to small per-frame trackpad deltas.
 const TRACKPAD_PX = 80;
 
+// Below this, a full-height sticky "one sector per screen" card can't fit its
+// own content (title + description + role pills) without clipping, so mobile
+// gets a plain, naturally-scrolling list instead of the desktop snap effect.
+const MOBILE_BREAKPOINT = 768;
+
 const ServedSectorsClient = () => {
     const cardsRef      = useRef<HTMLDivElement>(null);
+    const cardElRefs    = useRef<(HTMLDivElement | null)[]>([]);
     const activeRef     = useRef(0);        // current card index (0-based)
     const lockRef       = useRef(false);    // true while snap animation is running
     const inSectionRef  = useRef(false);    // true while cards container owns the viewport
@@ -22,6 +28,14 @@ const ServedSectorsClient = () => {
     const lastDirRef    = useRef(0);        // last scroll direction (resets accum on flip)
     const touchYRef     = useRef(0);
     const searchParams  = useSearchParams();
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     // ── Deep link: land directly on the requested sector's card ───────────────
     useEffect(() => {
@@ -29,13 +43,18 @@ const ServedSectorsClient = () => {
         if (!sectorId) return;
         const index = SECTORS.findIndex(s => s.id === sectorId);
         if (index < 0) return;
+
+        if (isMobile) {
+            cardElRefs.current[index]?.scrollIntoView({ block: 'start' });
+            return;
+        }
         const el = cardsRef.current;
         if (!el) return;
         activeRef.current = index;
         const sectionTop = el.getBoundingClientRect().top + window.scrollY;
         window.scrollTo({ top: sectionTop + index * window.innerHeight, behavior: 'instant' as ScrollBehavior });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams]);
+    }, [searchParams, isMobile]);
 
     // ── Snap to a specific card index ────────────────────────────────────────
     const snapTo = (index: number) => {
@@ -55,6 +74,7 @@ const ServedSectorsClient = () => {
 
     // ── Track whether the section owns the viewport ───────────────────────────
     useEffect(() => {
+        if (isMobile) return;
         const onScroll = () => {
             const el = cardsRef.current;
             if (!el) return;
@@ -74,10 +94,11 @@ const ServedSectorsClient = () => {
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
         return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+    }, [isMobile]);
 
     // ── Wheel snap ────────────────────────────────────────────────────────────
     useEffect(() => {
+        if (isMobile) return;
         const onWheel = (e: WheelEvent) => {
             if (!inSectionRef.current) return;
 
@@ -128,10 +149,11 @@ const ServedSectorsClient = () => {
         window.addEventListener('wheel', onWheel, { passive: false });
         return () => window.removeEventListener('wheel', onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isMobile]);
 
     // ── Touch swipe snap ──────────────────────────────────────────────────────
     useEffect(() => {
+        if (isMobile) return;
         const onStart = (e: TouchEvent) => { touchYRef.current = e.touches[0].clientY; };
         const onEnd   = (e: TouchEvent) => {
             if (!inSectionRef.current) return;
@@ -148,7 +170,7 @@ const ServedSectorsClient = () => {
             window.removeEventListener('touchend',   onEnd);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isMobile]);
 
     return (
         <section className="bg-black text-white">
@@ -163,12 +185,16 @@ const ServedSectorsClient = () => {
                 </p>
             </div>
 
-            {/* ── Stacking cards container ── */}
-            <div ref={cardsRef} style={{ height: `${SECTORS.length * 100}dvh` }}>
+            {/* ── Cards container — desktop: sticky-stacking snap effect; mobile: plain scrolling list ── */}
+            <div ref={cardsRef} style={{ height: isMobile ? 'auto' : `${SECTORS.length * 100}dvh` }}>
                 {SECTORS.map((sector, index) => (
                     <div
                         key={sector.id}
-                        style={{
+                        ref={el => { cardElRefs.current[index] = el; }}
+                        style={isMobile ? {
+                            position:        'relative',
+                            backgroundColor: `hsl(0,0%,${3 + index * 0.7}%)`,
+                        } : {
                             position:        'sticky',
                             top:             0,
                             height:          '100dvh',
@@ -176,7 +202,7 @@ const ServedSectorsClient = () => {
                             backgroundColor: `hsl(0,0%,${3 + index * 0.7}%)`,
                             overflow:        'hidden',
                         }}
-                        className="w-full border-t border-white/10 flex items-center"
+                        className={`w-full border-t border-white/10 flex items-center ${isMobile ? 'py-16' : ''}`}
                     >
                         <div className="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 md:gap-10 px-4 md:px-8 items-center h-full">
 

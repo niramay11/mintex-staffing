@@ -113,47 +113,47 @@ function buildHeroCardsData(api: { stats: HeroApiStat[]; jobs: HeroApiJob[]; pro
 }
 
 const StatContent = ({ data }: { data: StatData }) => (
-  <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-    <div className="mb-2 p-3 bg-white/5 rounded-full ring-1 ring-white/10 shadow-lg backdrop-blur-sm">
+  <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 text-center">
+    <div className="mb-1 sm:mb-2 p-1.5 sm:p-3 bg-white/5 rounded-full ring-1 ring-white/10 shadow-lg backdrop-blur-sm [&_svg]:w-3.5 [&_svg]:h-3.5 sm:[&_svg]:w-6 sm:[&_svg]:h-6">
       {data.icon}
     </div>
-    <h2 className="text-4xl font-bold text-white mb-1 tracking-tight">{data.value}</h2>
-    <p className="text-cyan-200 text-sm font-medium uppercase tracking-wider">{data.label}</p>
+    <h2 className="text-lg sm:text-3xl md:text-4xl font-bold text-white mb-0.5 sm:mb-1 tracking-tight">{data.value}</h2>
+    <p className="text-cyan-200 text-[9px] sm:text-sm font-medium uppercase tracking-wider">{data.label}</p>
   </div>
 );
 
 const JobContent = ({ data }: { data: JobData }) => (
-  <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-    <div className="rounded-full bg-green-500/20 px-3 py-1 mb-3 border border-green-500/30 backdrop-blur-md animate-pulse">
-      <h4 className="text-green-300 text-[10px] font-bold tracking-widest uppercase">{data.label}</h4>
+  <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 text-center">
+    <div className="rounded-full bg-green-500/20 px-2 sm:px-3 py-0.5 sm:py-1 mb-1.5 sm:mb-3 border border-green-500/30 backdrop-blur-md animate-pulse">
+      <h4 className="text-green-300 text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">{data.label}</h4>
     </div>
-    <div className="mb-2">
-      <FiBriefcase className="text-cyan-400 text-xl mx-auto mb-2" />
-      <h3 className="text-white text-lg font-semibold leading-tight">{data.jobTitle}</h3>
+    <div className="mb-1 sm:mb-2">
+      <FiBriefcase className="text-cyan-400 text-sm sm:text-xl mx-auto mb-1 sm:mb-2" />
+      <h3 className="text-white text-[11px] sm:text-lg font-semibold leading-tight">{data.jobTitle}</h3>
     </div>
-    <div className="flex items-center gap-1.5 mt-1 text-slate-400 text-xs font-medium bg-slate-800/50 px-2 py-1 rounded-md">
-      <FiMapPin className="text-xs" />
+    <div className="flex items-center gap-1 sm:gap-1.5 mt-1 text-slate-400 text-[8px] sm:text-xs font-medium bg-slate-800/50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
+      <FiMapPin className="text-[8px] sm:text-xs" />
       {data.location}
     </div>
   </div>
 );
 
 const ProfileContent = ({ data }: { data: ProfileData }) => (
-  <div className="flex flex-col items-center justify-center h-full p-4">
-    <div className="relative mb-3">
-      <div className="absolute -top-1 -right-4 w-8 h-8 rounded-full bg-[#5D4037] border-2 border-[#1E293B] flex items-center justify-center z-20 shadow-md">
-        <span className="text-white text-xs font-bold">{data.initial}</span>
+  <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4">
+    <div className="relative mb-1.5 sm:mb-3">
+      <div className="absolute -top-1 -right-2.5 sm:-right-4 w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-[#5D4037] border-2 border-[#1E293B] flex items-center justify-center z-20 shadow-md">
+        <span className="text-white text-[8px] sm:text-xs font-bold">{data.initial}</span>
       </div>
-      <div className="w-[60px] h-[60px] rounded-full overflow-hidden ring-2 ring-cyan-500/30 shadow-lg relative z-10">
-        <Image src={data.image || Profile} alt={data.name} width={60} height={60} className="object-cover" />
+      <div className="w-[34px] h-[34px] sm:w-[60px] sm:h-[60px] rounded-full overflow-hidden ring-2 ring-cyan-500/30 shadow-lg relative z-10">
+        <Image src={data.image || Profile} alt={data.name} width={60} height={60} className="object-cover w-full h-full" />
       </div>
     </div>
-    <div className="rounded-full bg-slate-700/50 px-3 py-1 mb-2 border border-slate-600/50 backdrop-blur-md">
-      <h4 className="text-white text-xs font-semibold tracking-wide">{data.name}</h4>
+    <div className="rounded-full bg-slate-700/50 px-2 sm:px-3 py-0.5 sm:py-1 mb-1 sm:mb-2 border border-slate-600/50 backdrop-blur-md">
+      <h4 className="text-white text-[9px] sm:text-xs font-semibold tracking-wide">{data.name}</h4>
     </div>
     <div className="text-center">
-      <p className="text-[10px] text-cyan-200 font-medium uppercase tracking-wider mb-0.5 opacity-90">{data.role}</p>
-      <p className="text-[9px] text-slate-400 font-medium">{data.sub}</p>
+      <p className="text-[7px] sm:text-[10px] text-cyan-200 font-medium uppercase tracking-wider mb-0.5 opacity-90">{data.role}</p>
+      <p className="text-[6px] sm:text-[9px] text-slate-400 font-medium">{data.sub}</p>
     </div>
   </div>
 );
@@ -194,7 +194,7 @@ const FadingCard = ({ config, isDesktop, standalone = false }: { config: Rotatin
 
   return (
     <motion.div
-      className={`w-[150px] h-[170px] sm:w-[180px] sm:h-[200px] ${isAbsolute ? "absolute" : "relative"}`}
+      className={`${isDesktop ? "w-[150px] h-[170px] sm:w-[180px] sm:h-[200px]" : "w-full aspect-[4/5]"} ${isAbsolute ? "absolute" : "relative"}`}
       style={isAbsolute ? config.desktopPosition : {}}
       initial={{ opacity: 0, y: 80 }}
       animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 80 }}
@@ -256,7 +256,7 @@ const HeroCards: React.FC = () => {
   const [statCard, jobCard, profileCard] = heroCardsData;
 
   return (
-    <div className={`w-full relative ${isDesktop ? "h-[600px]" : "h-auto py-8 sm:py-10 flex flex-row sm:flex-row flex-wrap gap-4 sm:gap-6 items-center justify-center"}`}>
+    <div className={`w-full relative ${isDesktop ? "h-[600px]" : "h-auto py-8 sm:py-10 grid grid-cols-3 gap-2.5 sm:gap-6 items-stretch"}`}>
       {isDesktop ? (
         <>
           {/* Job card — a bit lower and further right than center */}
