@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import PeakButton from "../landing/PeakButton";
 import HeroCards from "../landing/HeroCards";
@@ -31,9 +32,31 @@ const cardVariants: any = {
 };
 
 const Hero = () => {
+  // Desktop/laptop (mouse/trackpad) get the side-by-side layout with the
+  // absolute floating cards; phones AND tablets (touch, any screen size — a
+  // 1024px-wide iPad included) get the stacked layout with the simple grid.
+  // Must match HeroCards' own split exactly, since the outer row/column switch
+  // here and the inner card layout there need to agree — a pure width
+  // breakpoint (the old `lg:` classes) can't tell a tablet apart from a
+  // laptop window at the same size.
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(pointer: fine)");
+    const check = () => setIsDesktop(mq.matches && window.innerWidth >= 1024);
+    check();
+    mq.addEventListener("change", check);
+    window.addEventListener("resize", check);
+    return () => {
+      mq.removeEventListener("change", check);
+      window.removeEventListener("resize", check);
+    };
+  }, []);
+
   return (
     <motion.div
-      className="bg-hero flex flex-col lg:flex-row w-full overflow-hidden"
+      className={`bg-hero flex w-full overflow-hidden ${isDesktop ? "flex-row" : "flex-col"}`}
       style={{ minHeight: "clamp(640px, 100svh, 900px)" }}
       variants={containerVariants}
       initial="hidden"
@@ -42,7 +65,7 @@ const Hero = () => {
     >
       {/* LEFT CONTENT */}
       <div
-        className="w-full lg:w-1/2 flex flex-col items-start justify-center px-4 sm:px-6 md:px-8 lg:pl-16 xl:pl-22"
+        className={`flex flex-col items-start justify-center px-4 sm:px-6 md:px-8 ${isDesktop ? "w-1/2 lg:pl-16 xl:pl-22" : "w-full"}`}
         style={{
           paddingTop:    "clamp(130px, 15vh, 200px)",
           paddingBottom: "clamp(20px, 4vh, 56px)",
@@ -167,8 +190,8 @@ const Hero = () => {
       </div>
 
       {/* RIGHT — Floating hero cards */}
-      <div className="w-full lg:w-1/2 relative lg:mt-0 px-4 sm:px-6 md:px-8 lg:px-0 overflow-hidden">
-        <HeroCards />
+      <div className={`relative overflow-hidden ${isDesktop ? "w-1/2 px-0" : "w-full px-4 sm:px-6 md:px-8"}`}>
+        <HeroCards isDesktop={isDesktop} />
       </div>
     </motion.div>
   );

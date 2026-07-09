@@ -231,16 +231,11 @@ const FadingCard = ({ config, isDesktop, standalone = false }: { config: Rotatin
   );
 };
 
-const HeroCards: React.FC = () => {
-  const [isDesktop, setIsDesktop] = useState(false);
+// isDesktop is decided once by the parent Hero component (pointer type + width)
+// and passed down, so the outer row/column layout there and the card layout
+// here can never disagree — see the comment in Hero.tsx for why.
+const HeroCards: React.FC<{ isDesktop: boolean }> = ({ isDesktop }) => {
   const [heroCardsData, setHeroCardsData] = useState<RotatingCardConfig[]>(defaultHeroCardsData);
-
-  useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   useEffect(() => {
     fetch("/api/hero-cards")
